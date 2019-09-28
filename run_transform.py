@@ -254,6 +254,67 @@ df_players_full = pd.merge(df_players_full,
                            how='left',
                            on='player_id')
 
+# Data: team results
+team_results_cols = ['fixture_id_long', 'fixture_id', 'gameweek',
+                            'away_team_id', 'home_team_id', 'away_team_score',
+                            'home_team_score', 'fixture_kickoff_datetime',
+                            'fixture_finished']
+team_results_index = ['team_id', 'fixture_id']
+home = df_fixtures[team_results_cols].copy()
+home.rename(columns={'fixture_finished': 'played',
+                     'home_team_id': 'team_id',
+                     'away_team_id': 'opponent_team_id',
+                     'home_team_score': 'goals_scored',
+                     'away_team_score': 'goals_conceded'}, inplace=True)
+home['fixture_home'] = True
+home['win'] = home['played'] & (home['goals_scored'] > home['goals_conceded'])
+home['draw'] = home['played'] & (home['goals_scored'] == home['goals_conceded'])
+home['loss'] = home['played'] & (home['goals_scored'] < home['goals_conceded'])
+home['points'] = home['win'] * 3 + home['draw'] * 1
+home.loc[~home['played'], ['win', 'draw', 'loss']] = np.nan
+home['goal_difference'] = home['goals_scored'] - home['goals_conceded']
+
+away = df_fixtures[team_results_cols].copy()
+away.rename(columns={'fixture_finished': 'played',
+                     'away_team_id': 'team_id',
+                     'home_team_id': 'opponent_team_id',
+                     'away_team_score': 'goals_scored',
+                     'home_team_score': 'goals_conceded'}, inplace=True)
+away['fixture_home'] = False
+away['win'] = away['played'] & (away['goals_scored'] > away['goals_conceded'])
+away['draw'] = away['played'] & (away['goals_scored'] == away['goals_conceded'])
+away['loss'] = away['played'] & (away['goals_scored'] < away['goals_conceded'])
+away['points'] = away['win'] * 3 + away['draw'] * 1
+away.loc[~away['played'], ['win', 'draw', 'loss']] = np.nan
+away['goal_difference'] = away['goals_scored'] - away['goals_conceded']
+
+df_team_results = pd.concat([home, away], sort=False)
+df_team_results.sort_values(['team_id', 'fixture_kickoff_datetime'],
+                            inplace=True)
+
+# Data: Premier League table
+tbl_cols = ['points',
+            'goal_difference',
+            'played',
+            'win',
+            'loss',
+            'draw',
+            'goals_scored',
+            'goals_conceded']
+df_table = pd.merge(df_team_results,
+                    df_teams[['team_id', 'team_name_long']],
+                    how='left',
+                    on='team_id')
+df_table =\
+    df_table.groupby(['team_id', 'team_name_long'],
+                     as_index=False)[tbl_cols].sum()
+df_table.sort_values(['points', 'goal_difference', 'goals_scored'],
+                     ascending=False,
+                     inplace=True)
+df_table[tbl_cols] = df_table[tbl_cols].astype(int)
+df_table.reset_index(drop=True, inplace=True)
+
+# Set indexes (primary keys) of tables
 df_fixtures.set_index(fixtures_index, inplace=True)
 df_gameweeks.set_index(gameweek_index, inplace=True)
 df_teams.set_index(teams_index, inplace=True)
@@ -262,7 +323,10 @@ df_players_sum.set_index(players_sum_index, inplace=True)
 df_players_prev_seasons.set_index(players_prev_seasons_index, inplace=True)
 df_players_past.set_index(players_past_index, inplace=True)
 df_players_future.set_index(players_future_index, inplace=True)
+df_team_results.set_index(teams_index, inplace=True)
 
+# Check indexes are valid (i.e. unique)
+# TODO: not null check
 assert dval_unique_index(df_fixtures)
 assert dval_unique_index(df_gameweeks)
 assert dval_unique_index(df_teams)
@@ -271,3 +335,4 @@ assert dval_unique_index(df_players_sum)
 assert dval_unique_index(df_players_prev_seasons)
 assert dval_unique_index(df_players_past)
 assert dval_unique_index(df_players_future)
+assert dval_unique_index(df_team_results)
