@@ -1,2 +1,12 @@
 # IDE files
 .idea/
+
+# Compiled
+/__pycache__/
+*/__pycache__/
+
+# Documents (may remove from ignore later)
+docs/
+
+# Log files (will likely move out of repo in the future)
+logs/
