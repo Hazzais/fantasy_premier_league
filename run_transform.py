@@ -3,13 +3,12 @@ import json
 import re
 import logging
 import pickle
+import argparse
 
 import pandas as pd
 import numpy as np
 
-# TODO: ARGS
-DATA_LOC = 'data/'
-DATA_LOC_OUT = 'data/'
+from fpltools.utils import get_datetime
 
 
 def dval_unique_index(df):
@@ -31,22 +30,28 @@ def dval_notnull_index(df):
         return sum(df_index.isnull()) == 0
 
 
-def check_unique_index(df, df_name, dval_func=dval_unique_index):
+def check_unique_index(df, df_name, dval_func=dval_unique_index,
+                       raise_errors=True):
     """Check indexes are valid (i.e. unique)"""
     try:
         assert dval_func(df)
     except AssertionError as e:
         logging.exception(f'Non-unique index for {df_name}')
+        if raise_errors:
+            raise AssertionError(e)
     else:
         logging.info(f'Unique index for {df_name}')
 
 
-def check_not_null_index(df, df_name, dval_func=dval_notnull_index):
+def check_not_null_index(df, df_name, dval_func=dval_notnull_index,
+                         raise_errors=True):
     """Check no null index values"""
     try:
         assert dval_func(df)
     except AssertionError as e:
         logging.exception(f'Null index value(s) for {df_name}')
+        if raise_errors:
+            raise AssertionError(e)
     else:
         logging.info(f'No null index entries for {df_name}')
 
@@ -58,7 +63,43 @@ def pandas_integerstr_to_int(x):
         return re.sub(r'(\.\d+)', '', str(x))
 
 
+def pickle_data(data, data_name, data_loc):
+    """Save unedited data as JSON files"""
+    logging.info(f'Saving {data_name} as pickle in {data_loc}')
+    try:
+        with open(os.path.join(data_loc, f'{data_name}.pkl'), 'wb') as f:
+            pickle.dump(data, f)
+    except FileNotFoundError as e:
+        logging.exception('Unable to find save location')
+    else:
+        logging.info(f'Successfully saved {data_name}')
+
+
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Transformations of '
+                                                 'previously batch downloaded '
+                                                 'JSON files')
+
+    parser.add_argument('data_input',
+                        type=str,
+                        help='path from which to load data')
+    parser.add_argument('data_output',
+                        type=str,
+                        help='path in which to store data')
+    parser.add_argument('-r',
+                        '--raise-errors',
+                        action='store_false',
+                        help='stop on data validation exception')
+    args = parser.parse_args()
+
+    DATA_LOC = args.data_input
+    DATA_LOC_OUT = args.data_output
+    RAISE_ERRORS = args.raise_errors
+
+    logging.basicConfig(level=logging.INFO,
+                        filename=f'logs/transform_{get_datetime()}.log',
+                        filemode='w',
+                        format='%(levelname)s - %(asctime)s - %(message)s')
 
     with open(os.path.join(DATA_LOC, f'fixtures.json'), 'r') as f:
         fixtures_data = json.load(f)
@@ -379,39 +420,44 @@ if __name__ == '__main__':
     df_team_results.set_index(team_results_index, inplace=True)
 
     # Verify unique indexes
-    check_unique_index(df_fixtures, 'fixtures')
-    check_unique_index(df_gameweeks, 'gameweeks')
-    check_unique_index(df_teams, 'teams')
-    check_unique_index(df_positions, 'positions')
-    check_unique_index(df_players_sum, 'players_summary')
-    check_unique_index(df_players_prev_seasons, 'players_prev_seasons')
-    check_unique_index(df_players_past, 'players_past')
-    check_unique_index(df_players_future, 'players_future')
-    check_unique_index(df_team_results, 'team_results')
+    check_unique_index(df_fixtures, 'fixtures',
+                       raise_errors=RAISE_ERRORS)
+    check_unique_index(df_gameweeks, 'gameweeks',
+                       raise_errors=RAISE_ERRORS)
+    check_unique_index(df_teams, 'teams',
+                       raise_errors=RAISE_ERRORS)
+    check_unique_index(df_positions, 'positions',
+                       raise_errors=RAISE_ERRORS)
+    check_unique_index(df_players_sum, 'players_summary',
+                       raise_errors=RAISE_ERRORS)
+    check_unique_index(df_players_prev_seasons, 'players_prev_seasons',
+                       raise_errors=RAISE_ERRORS)
+    check_unique_index(df_players_past, 'players_past',
+                       raise_errors=RAISE_ERRORS)
+    check_unique_index(df_players_future, 'players_future',
+                       raise_errors=RAISE_ERRORS)
+    check_unique_index(df_team_results, 'team_results',
+                       raise_errors=RAISE_ERRORS)
 
     # Verify not-null indexes
-    check_not_null_index(df_fixtures, 'fixtures')
-    check_not_null_index(df_gameweeks, 'gameweeks')
-    check_not_null_index(df_teams, 'teams')
-    check_not_null_index(df_positions, 'positions')
-    check_not_null_index(df_players_sum, 'players_summary')
-    check_not_null_index(df_players_prev_seasons, 'players_prev_seasons')
-    check_not_null_index(df_players_past, 'players_past')
-    check_not_null_index(df_players_future, 'players_future')
-    check_not_null_index(df_team_results, 'team_results')
-
-
-    def pickle_data(data, data_name, data_loc):
-        """Save unedited data as JSON files"""
-        logging.info(f'Saving {data_name} as pickle in {data_loc}')
-        try:
-            with open(os.path.join(data_loc, f'{data_name}.pkl'), 'wb') as f:
-                pickle.dump(data, f)
-        except FileNotFoundError as e:
-            logging.exception('Unable to find save location')
-        else:
-            logging.info(f'Successfully saved {data_name}')
-
+    check_not_null_index(df_fixtures, 'fixtures',
+                         raise_errors=RAISE_ERRORS)
+    check_not_null_index(df_gameweeks, 'gameweeks',
+                         raise_errors=RAISE_ERRORS)
+    check_not_null_index(df_teams, 'teams',
+                         raise_errors=RAISE_ERRORS)
+    check_not_null_index(df_positions, 'positions',
+                         raise_errors=RAISE_ERRORS)
+    check_not_null_index(df_players_sum, 'players_summary',
+                         raise_errors=RAISE_ERRORS)
+    check_not_null_index(df_players_prev_seasons, 'players_prev_seasons',
+                         raise_errors=RAISE_ERRORS)
+    check_not_null_index(df_players_past, 'players_past',
+                         raise_errors=RAISE_ERRORS)
+    check_not_null_index(df_players_future, 'players_future',
+                         raise_errors=RAISE_ERRORS)
+    check_not_null_index(df_team_results, 'team_results',
+                         raise_errors=RAISE_ERRORS)
 
     pickle_data(df_fixtures, 'transformed_fixtures', DATA_LOC_OUT)
     pickle_data(df_gameweeks, 'transformed_gameweeks', DATA_LOC_OUT)
