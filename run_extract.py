@@ -2,16 +2,11 @@ import os
 import requests
 import json
 import logging
+import argparse
 
-import keyring
+from fpltools.constants import API_URLS
+from fpltools.utils import get_datetime
 
-from fpltools.constants import LOGIN_URL, API_URLS
-from fpltools.utils import get_datetime_string, get_datetime
-
-# TODO: ARGUMENTS:
-# user
-# (opt) fpl_service
-# (opt) API URLs to use
 # (opt) data location
 
 # FUTURE: may use endpoints requiring credentials in future
@@ -19,13 +14,16 @@ from fpltools.utils import get_datetime_string, get_datetime
 # SERVICE = 'fpl'
 # USER = 'harryafirth@gmail.com'
 # user_pw = keyring.get_password(SERVICE, USER)
-
-# TODO: arg or from yaml
-DATA_LOC = 'data'
+# args:
+# user
+# (opt) fpl_service
+# (opt) API URLs to use
 
 
 def retrieve_player_details(link, player_ids, verbose=False):
-    # More complicated - for each player - retrieve a dictionary of their data
+    """For each player - retrieve a dictionary of their data by cycling through
+    their player_ids (derived from main data set). Set verbose=True to print
+    output for every one in ten players."""
     players_full = {}
     for i, pl in enumerate(player_ids):
         if verbose and i % 10 == 0:
@@ -38,6 +36,7 @@ def retrieve_player_details(link, player_ids, verbose=False):
 
 
 def retrieve_data(link):
+    """Retrieve JSON formatted data from an API endpoint (link)"""
     logging.info(f'Reading data from link ({link}')
     try:
         response = requests.get(link)
@@ -51,6 +50,7 @@ def retrieve_data(link):
 
 
 def save_intermediate_data(data, data_name, data_loc):
+    """Save unedited data as JSON files"""
     logging.info(f'Saving {data_name} as JSON in {data_loc}')
     try:
         with open(os.path.join(data_loc, f'{data_name}.json'), 'w') as f:
@@ -62,16 +62,13 @@ def save_intermediate_data(data, data_name, data_loc):
 
 
 if __name__ == '__main__':
-
     parser = argparse.ArgumentParser(description='Batch download from FPL'
                                                  'website endpoints and save as'
                                                  'JSON')
 
-    parser.add_argument('d',
-                        '--data_location',
+    parser.add_argument('data_location',
                         type=str,
-                        help='path in which to store data',
-                        required=True)
+                        help='path in which to store data')
     args = parser.parse_args()
 
     DATA_LOC = args.data_location
@@ -90,4 +87,3 @@ if __name__ == '__main__':
     save_intermediate_data(main_data, 'main', DATA_LOC)
     save_intermediate_data(fixtures_data, 'fixtures', DATA_LOC)
     save_intermediate_data(player_data, 'players', DATA_LOC)
-
