@@ -57,10 +57,27 @@ def check_not_null_index(df, df_name, dval_func=dval_notnull_index,
 
 
 def pandas_integerstr_to_int(x):
+    """Pandas is not able to use int() on columns with NaNs in. This function
+    does this by stripping out characters including and after a decimal place,
+    returning a string."""
     if np.isnan(x):
         return np.nan
     else:
         return re.sub(r'(\.\d+)', '', str(x))
+
+
+def load_json(data_name, data_loc):
+    """Load data from JSON file in data_loc with name data_name"""
+    logging.info(f'Loading {data_name} from {data_loc}')
+    try:
+        with open(os.path.join(data_loc, data_name), 'r') as f:
+            loaded = json.load(f)
+    except FileNotFoundError as e:
+        logging.exception('Unable to find load location')
+        raise FileNotFoundError(e)
+    else:
+        logging.info(f'Successfully loaded {data_name}')
+        return loaded
 
 
 def pickle_data(data, data_name, data_loc):
@@ -101,16 +118,12 @@ if __name__ == '__main__':
                         filemode='w',
                         format='%(levelname)s - %(asctime)s - %(message)s')
 
-    with open(os.path.join(DATA_LOC, f'fixtures.json'), 'r') as f:
-        fixtures_data = json.load(f)
-
-    with open(os.path.join(DATA_LOC, f'players.json'), 'r') as f:
-        player_data = json.load(f)
-
-    with open(os.path.join(DATA_LOC, f'main.json'), 'r') as f:
-        main_data = json.load(f)
+    fixtures_data = load_json('fixtures.json', DATA_LOC)
+    player_data = load_json('players.json', DATA_LOC)
+    main_data = load_json('main.json', DATA_LOC)
 
     # Data: fixtures
+    logging.info('Beginning transform of fixtures data')
     fixtures_rename = {'code': 'fixture_id_long',
                        'event': 'gameweek',
                        'finished': 'fixture_finished',
@@ -141,8 +154,10 @@ if __name__ == '__main__':
     df_fixtures.rename(columns=fixtures_rename, inplace=True)
     df_fixtures[fixtures_str_cols] = df_fixtures[fixtures_str_cols].astype(str)
     df_fixtures.sort_values(fixtures_index, inplace=True)
+    logging.info('Completed transform of fixtures data')
 
     # Data: gameweeks
+    logging.info('Beginning gameweek of fixtures data')
     gameweek_rename = {'id': 'gameweek',
                        'name': 'gameweek_name',
                        'finished': 'gameweek_finished',
@@ -179,8 +194,10 @@ if __name__ == '__main__':
     df_gameweeks[gameweek_str_cols] = df_gameweeks[gameweek_str_cols]\
         .applymap(pandas_integerstr_to_int)
     df_gameweeks.sort_values(gameweek_index, inplace=True)
+    logging.info('Completed transform of gameweek data')
 
     # Data: teams
+    logging.info('Beginning transform of teams data')
     teams_rename = {'code': 'team_id_long',
                     'id': 'team_id',
                     'name': 'team_name_long',
@@ -203,8 +220,10 @@ if __name__ == '__main__':
     df_teams.drop(columns=teams_drop, inplace=True)
     df_teams[teams_str_cols] = df_teams[teams_str_cols].astype(str)
     df_teams.sort_values(teams_index, inplace=True)
+    logging.info('Completed transform of teams data')
 
     # Reference data: positions
+    logging.info('Beginning transform of positions data')
     positions_rename = {'id': 'position_id',
                         'singular_name': 'position_name_long',
                         'singular_name_short': 'position_name'}
@@ -219,9 +238,12 @@ if __name__ == '__main__':
     df_positions[positions_str_cols] =\
         df_positions[positions_str_cols].astype(str)
     df_positions.sort_values(positions_index, inplace=True)
+    logging.info('Completed transform of positions data')
 
     # Data: players - single row per player with current stats for this point
     # and aggregated up to this point
+    logging.info('Beginning transform of fixtures data')
+    logging.info('Completed transform of fixtures data')
     players_sum_rename = {'code': 'player_id_long',
                           'element_type': 'position_id',
                           'event_points': 'gameweek_points',
@@ -244,6 +266,7 @@ if __name__ == '__main__':
 
     # Data: players - one row per player per fixture with stats for that
     # fixture only
+    logging.info('Extracting players from dictionary into dataframes')
     df_players_past = []
     df_players_future = []
     df_players_prev_seasons = []
@@ -255,6 +278,7 @@ if __name__ == '__main__':
         df_players_prev_seasons.append(pd.DataFrame(p['history_past']))
 
     # Data: player performance in previous seasons
+    logging.info('Beginning transform of player previous seasons data')
     players_prev_seasons_rename = {'element_code': 'player_id_long'}
     players_prev_seasons_drop = []
     players_prev_seasons_index = ['player_id_long', 'season_name']
@@ -269,8 +293,10 @@ if __name__ == '__main__':
         df_players_prev_seasons[players_prev_seasons_str_cols].astype(str)
     df_players_prev_seasons.sort_values(players_prev_seasons_index,
                                         inplace=True)
+    logging.info('Completed transform of player previous seasons data')
 
     # Data: players in previous fixtures this season
+    logging.info('Beginning transform of previous player fixtures data')
     players_past_rename = {'element': 'player_id',
                            'fixture': 'fixture_id',
                            'round': 'gameweek',
@@ -294,8 +320,10 @@ if __name__ == '__main__':
                                left_on='fixture_id'
                                )
     df_players_past.sort_values(players_past_index, inplace=True)
+    logging.info('Completed transform of previous player fixtures data')
 
     # Data: players' remaining fixtures
+    logging.info('Beginning transform of remaining player fixtures data')
     player_future_rename = {'event': 'gameweek',
                             'code': 'fixture_id_long',
                             'team_h': 'home_team_id',
@@ -321,9 +349,11 @@ if __name__ == '__main__':
                                  on='fixture_id_long'
                                  )
     df_players_future.sort_values(players_future_index, inplace=True)
+    logging.info('Completed transform of remaining player fixtures data')
 
     # Data: players - one row per fixture for this season's previous and
     # remaining fixtures
+    logging.info('Combining previous and remaining player fixture data')
     df_players_full = pd.concat((df_players_past, df_players_future),
                                 sort=False)
 
@@ -338,6 +368,7 @@ if __name__ == '__main__':
                                on='player_id')
 
     # Data: team results
+    logging.info('Beginning transform of team results data')
     team_results_cols = ['fixture_id_long',
                          'fixture_id',
                          'gameweek',
@@ -385,8 +416,10 @@ if __name__ == '__main__':
     df_team_results = pd.concat([home, away], sort=False)
     df_team_results.sort_values(['team_id', 'fixture_kickoff_datetime'],
                                 inplace=True)
+    logging.info('Completed transform of team results data')
 
     # Data: Premier League table
+    logging.info('Beginning transform of Premier League table data')
     tbl_cols = ['points',
                 'goal_difference',
                 'played',
@@ -407,8 +440,10 @@ if __name__ == '__main__':
                          inplace=True)
     df_table[tbl_cols] = df_table[tbl_cols].astype(int)
     df_table.reset_index(drop=True, inplace=True)
+    logging.info('Completed transform of Premier League table data')
 
     # Set indexes (primary keys) of tables
+    logging.info('Setting indexes (to be used as primary keys)')
     df_fixtures.set_index(fixtures_index, inplace=True)
     df_gameweeks.set_index(gameweek_index, inplace=True)
     df_teams.set_index(teams_index, inplace=True)
@@ -420,6 +455,7 @@ if __name__ == '__main__':
     df_team_results.set_index(team_results_index, inplace=True)
 
     # Verify unique indexes
+    logging.info('Verifying unique indexes')
     check_unique_index(df_fixtures, 'fixtures',
                        raise_errors=RAISE_ERRORS)
     check_unique_index(df_gameweeks, 'gameweeks',
@@ -440,6 +476,7 @@ if __name__ == '__main__':
                        raise_errors=RAISE_ERRORS)
 
     # Verify not-null indexes
+    logging.info('Verifying non-null indexes')
     check_not_null_index(df_fixtures, 'fixtures',
                          raise_errors=RAISE_ERRORS)
     check_not_null_index(df_gameweeks, 'gameweeks',
@@ -459,6 +496,9 @@ if __name__ == '__main__':
     check_not_null_index(df_team_results, 'team_results',
                          raise_errors=RAISE_ERRORS)
 
+    # Pickle dataframes so as to retain column information (types etc.) and
+    # indexes
+    logging.info('Pickling final dataframes')
     pickle_data(df_fixtures, 'transformed_fixtures', DATA_LOC_OUT)
     pickle_data(df_gameweeks, 'transformed_gameweeks', DATA_LOC_OUT)
     pickle_data(df_teams, 'transformed_teams', DATA_LOC_OUT)
@@ -471,3 +511,5 @@ if __name__ == '__main__':
     pickle_data(df_players_future, 'transformed_players_future', DATA_LOC_OUT)
     pickle_data(df_team_results, 'transformed_team_results', DATA_LOC_OUT)
     pickle_data(df_table, 'transformed_league_table', DATA_LOC_OUT)
+
+    logging.info('================Transform complete================')
