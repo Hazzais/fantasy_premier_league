@@ -1,12 +1,15 @@
 import os
 import json
 import re
+import logging
+import pickle
 
 import pandas as pd
 import numpy as np
 
 # TODO: ARGS
 DATA_LOC = 'data/'
+DATA_LOC_OUT = 'data/'
 
 
 def dval_unique_index(df):
@@ -35,20 +38,15 @@ def pandas_integerstr_to_int(x):
         return re.sub(r'(\.\d+)', '', str(x))
 
 
-# TODO: Automate or get rid of temporary files
-DT1 = '1569351282'
-DT2 = '1569351282'
-DT3 = '1569351272'
-
 if __name__ == '__main__':
 
-    with open(os.path.join(DATA_LOC, f'fixtures_{DT1}.json'), 'r') as f:
+    with open(os.path.join(DATA_LOC, f'fixtures.json'), 'r') as f:
         fixtures_data = json.load(f)
 
-    with open(os.path.join(DATA_LOC, f'players_{DT2}.json'), 'r') as f:
+    with open(os.path.join(DATA_LOC, f'players.json'), 'r') as f:
         player_data = json.load(f)
 
-    with open(os.path.join(DATA_LOC, f'main_{DT3}.json'), 'r') as f:
+    with open(os.path.join(DATA_LOC, f'main.json'), 'r') as f:
         main_data = json.load(f)
 
     # Data: fixtures
@@ -380,3 +378,29 @@ if __name__ == '__main__':
     assert dval_notnull_index(df_players_past)
     assert dval_notnull_index(df_players_future)
     assert dval_notnull_index(df_team_results)
+
+
+    def pickle_data(data, data_name, data_loc):
+        """Save unedited data as JSON files"""
+        logging.info(f'Saving {data_name} as pickle in {data_loc}')
+        try:
+            with open(os.path.join(data_loc, f'{data_name}.pkl'), 'wb') as f:
+                pickle.dump(data, f)
+        except FileNotFoundError as e:
+            logging.exception('Unable to find save location')
+        else:
+            logging.info(f'Successfully saved {data_name}')
+
+
+    pickle_data(df_fixtures, 'transformed_fixtures', DATA_LOC_OUT)
+    pickle_data(df_gameweeks, 'transformed_gameweeks', DATA_LOC_OUT)
+    pickle_data(df_teams, 'transformed_teams', DATA_LOC_OUT)
+    pickle_data(df_positions, 'transformed_positions', DATA_LOC_OUT)
+    pickle_data(df_players_sum, 'transformed_players_summary', DATA_LOC_OUT)
+    pickle_data(df_players_prev_seasons,
+                'transformed_players_previous_seasons',
+                DATA_LOC_OUT)
+    pickle_data(df_players_past, 'transformed_players_past', DATA_LOC_OUT)
+    pickle_data(df_players_future, 'transformed_players_future', DATA_LOC_OUT)
+    pickle_data(df_team_results, 'transformed_team_results', DATA_LOC_OUT)
+    pickle_data(df_table, 'transformed_league_table', DATA_LOC_OUT)
