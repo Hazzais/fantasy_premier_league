@@ -87,3 +87,5 @@ if __name__ == '__main__':
     save_intermediate_data(main_data, 'main', DATA_LOC)
     save_intermediate_data(fixtures_data, 'fixtures', DATA_LOC)
     save_intermediate_data(player_data, 'players', DATA_LOC)
+
+    logging.info('================Extract complete================')
