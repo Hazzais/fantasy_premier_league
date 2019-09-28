@@ -31,6 +31,26 @@ def dval_notnull_index(df):
         return sum(df_index.isnull()) == 0
 
 
+def check_unique_index(df, df_name, dval_func=dval_unique_index):
+    """Check indexes are valid (i.e. unique)"""
+    try:
+        assert dval_func(df)
+    except AssertionError as e:
+        logging.exception(f'Non-unique index for {df_name}')
+    else:
+        logging.info(f'Unique index for {df_name}')
+
+
+def check_not_null_index(df, df_name, dval_func=dval_notnull_index):
+    """Check no null index values"""
+    try:
+        assert dval_func(df)
+    except AssertionError as e:
+        logging.exception(f'Null index value(s) for {df_name}')
+    else:
+        logging.info(f'No null index entries for {df_name}')
+
+
 def pandas_integerstr_to_int(x):
     if np.isnan(x):
         return np.nan
@@ -358,26 +378,27 @@ if __name__ == '__main__':
     df_players_future.set_index(players_future_index, inplace=True)
     df_team_results.set_index(team_results_index, inplace=True)
 
-    # Check indexes are valid (i.e. unique)
-    assert dval_unique_index(df_fixtures)
-    assert dval_unique_index(df_gameweeks)
-    assert dval_unique_index(df_teams)
-    assert dval_unique_index(df_positions)
-    assert dval_unique_index(df_players_sum)
-    assert dval_unique_index(df_players_prev_seasons)
-    assert dval_unique_index(df_players_past)
-    assert dval_unique_index(df_players_future)
-    assert dval_unique_index(df_team_results)
+    # Verify unique indexes
+    check_unique_index(df_fixtures, 'fixtures')
+    check_unique_index(df_gameweeks, 'gameweeks')
+    check_unique_index(df_teams, 'teams')
+    check_unique_index(df_positions, 'positions')
+    check_unique_index(df_players_sum, 'players_summary')
+    check_unique_index(df_players_prev_seasons, 'players_prev_seasons')
+    check_unique_index(df_players_past, 'players_past')
+    check_unique_index(df_players_future, 'players_future')
+    check_unique_index(df_team_results, 'team_results')
 
-    assert dval_notnull_index(df_fixtures)
-    assert dval_notnull_index(df_gameweeks)
-    assert dval_notnull_index(df_teams)
-    assert dval_notnull_index(df_positions)
-    assert dval_notnull_index(df_players_sum)
-    assert dval_notnull_index(df_players_prev_seasons)
-    assert dval_notnull_index(df_players_past)
-    assert dval_notnull_index(df_players_future)
-    assert dval_notnull_index(df_team_results)
+    # Verify not-null indexes
+    check_not_null_index(df_fixtures, 'fixtures')
+    check_not_null_index(df_gameweeks, 'gameweeks')
+    check_not_null_index(df_teams, 'teams')
+    check_not_null_index(df_positions, 'positions')
+    check_not_null_index(df_players_sum, 'players_summary')
+    check_not_null_index(df_players_prev_seasons, 'players_prev_seasons')
+    check_not_null_index(df_players_past, 'players_past')
+    check_not_null_index(df_players_future, 'players_future')
+    check_not_null_index(df_team_results, 'team_results')
 
 
     def pickle_data(data, data_name, data_loc):
