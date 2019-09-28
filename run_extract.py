@@ -66,13 +66,13 @@ if __name__ == '__main__':
 
 
     with open(os.path.join(DATA_LOC,
-                           f'main_{get_datetime()}.json'), 'w') as f:
+                           f'main.json'), 'w') as f:
         json.dump(main_data, f)
 
     with open(os.path.join(DATA_LOC,
-                           f'fixtures_{get_datetime()}.json'), 'w') as f:
+                           f'fixtures.json'), 'w') as f:
         json.dump(fixtures_data, f)
 
     with open(os.path.join(DATA_LOC,
-                           f'players_{get_datetime()}.json'), 'w') as f:
+                           f'players.json'), 'w') as f:
         json.dump(player_data, f)
