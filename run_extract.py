@@ -7,18 +7,6 @@ import argparse
 from fpltools.constants import API_URLS
 from fpltools.utils import get_datetime
 
-# (opt) data location
-
-# FUTURE: may use endpoints requiring credentials in future
-# import keyring
-# SERVICE = 'fpl'
-# USER = 'harryafirth@gmail.com'
-# user_pw = keyring.get_password(SERVICE, USER)
-# args:
-# user
-# (opt) fpl_service
-# (opt) API URLs to use
-
 
 def retrieve_player_details(link, player_ids, verbose=False):
     """For each player - retrieve a dictionary of their data by cycling through
