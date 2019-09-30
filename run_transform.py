@@ -299,6 +299,8 @@ if __name__ == '__main__':
     logging.info('Beginning transform of previous player fixtures data')
     players_past_rename = {'element': 'player_id',
                            'fixture': 'fixture_id',
+                           'team_h_score': 'home_team_score',
+                           'team_a_score': 'away_team_score',
                            'round': 'gameweek',
                            'was_home': 'fixture_home'}
     players_past_drop = ['kickoff_time', 'opponent_team']
@@ -328,6 +330,8 @@ if __name__ == '__main__':
                             'code': 'fixture_id_long',
                             'team_h': 'home_team_id',
                             'team_a': 'away_team_id',
+                            'team_h_score': 'home_team_score',
+                            'team_a_score': 'away_team_score',
                             'is_home': 'fixture_home'}
     players_future_drop = ['kickoff_time', 'event_name']
     players_future_str_cols = ['fixture_id_long',
@@ -354,6 +358,7 @@ if __name__ == '__main__':
     # Data: players - one row per fixture for this season's previous and
     # remaining fixtures
     logging.info('Combining previous and remaining player fixture data')
+    players_full_index = ['player_id', 'gameweek', 'fixture_id']
     df_players_full = pd.concat((df_players_past, df_players_future),
                                 sort=False)
 
@@ -366,6 +371,13 @@ if __name__ == '__main__':
                                df_players_sum[['player_id', 'position_id']],
                                how='left',
                                on='player_id')
+    # For current gameweek (depending on when data is taken), both past and
+    # future can contain the same row. This needs to be removed.
+    duplicate_rows = df_players_full.duplicated(subset=players_full_index, keep=False)
+    drop_rows = pd.isna(df_players_full.total_points) & duplicate_rows
+    df_players_full = df_players_full[~drop_rows]
+    df_players_full.sort_values(players_full_index, inplace=True)
+
 
     # Data: team results
     logging.info('Beginning transform of team results data')
@@ -452,6 +464,7 @@ if __name__ == '__main__':
     df_players_prev_seasons.set_index(players_prev_seasons_index, inplace=True)
     df_players_past.set_index(players_past_index, inplace=True)
     df_players_future.set_index(players_future_index, inplace=True)
+    df_players_full.set_index(players_full_index, inplace=True)
     df_team_results.set_index(team_results_index, inplace=True)
 
     # Verify unique indexes
@@ -471,6 +484,8 @@ if __name__ == '__main__':
     check_unique_index(df_players_past, 'players_past',
                        raise_errors=RAISE_ERRORS)
     check_unique_index(df_players_future, 'players_future',
+                       raise_errors=RAISE_ERRORS)
+    check_unique_index(df_players_full, 'players_full',
                        raise_errors=RAISE_ERRORS)
     check_unique_index(df_team_results, 'team_results',
                        raise_errors=RAISE_ERRORS)
@@ -493,6 +508,8 @@ if __name__ == '__main__':
                          raise_errors=RAISE_ERRORS)
     check_not_null_index(df_players_future, 'players_future',
                          raise_errors=RAISE_ERRORS)
+    check_not_null_index(df_players_full, 'players_full',
+                         raise_errors=RAISE_ERRORS)
     check_not_null_index(df_team_results, 'team_results',
                          raise_errors=RAISE_ERRORS)
 
@@ -509,6 +526,7 @@ if __name__ == '__main__':
                 DATA_LOC_OUT)
     pickle_data(df_players_past, 'transformed_players_past', DATA_LOC_OUT)
     pickle_data(df_players_future, 'transformed_players_future', DATA_LOC_OUT)
+    pickle_data(df_players_full, 'transformed_players_full', DATA_LOC_OUT)
     pickle_data(df_team_results, 'transformed_team_results', DATA_LOC_OUT)
     pickle_data(df_table, 'transformed_league_table', DATA_LOC_OUT)
 
