@@ -82,6 +82,8 @@ if __name__ == '__main__':
                                          DATA_LOC)
     df_players_past = load_pickle_data('transformed_players_past.pkl',
                                        DATA_LOC)
+    df_players_full = load_pickle_data('transformed_players_full.pkl',
+                                       DATA_LOC)
     df_players_previous_seasons =\
         load_pickle_data('transformed_players_previous_seasons.pkl', DATA_LOC)
     df_players_summary = load_pickle_data('transformed_players_summary.pkl',
@@ -107,7 +109,7 @@ if __name__ == '__main__':
 
 
 # fixtures - overwrite - add gameweek FK
-create_query = """CREATE TABLE {} (
+QUERY_FIXTURES = """CREATE TABLE {} (
     fixture_id VARCHAR(3) PRIMARY KEY,
     fixture_id_long VARCHAR(7) UNIQUE NOT NULL,
     gameweek VARCHAR(2) NOT NULL,
@@ -122,9 +124,272 @@ create_query = """CREATE TABLE {} (
     away_team_score INT,
     home_team_fixture_difficulty INT CHECK(home_team_fixture_difficulty<=4),
     away_team_fixture_difficulty INT CHECK(home_team_fixture_difficulty<=4)
-    )
+    );
     """
-print(create_query.format('fixtures'))
+
+QUERY_GAMEWEEKS = """CREATE TABLE {} (
+    gameweek_id VARCHAR(2) PRIMARY KEY,
+    gameweek_name VARCHAR(11) UNIQUE NOT NULL,
+    gameweek_deadline_time TIMESTAMP NOT NULL,
+    gameweek_previous BOOL NOT NULL,
+    gameweek_current BOOL NOT NULL,
+    gameweek_next BOOL NOT NULL,
+    gameweek_finished BOOT NOT NULL,
+    gameweek_data_checked BOOL NOT NULL,
+    average_entry_score INT,
+    highest_scoring_entry VARCHAR(8),
+    highest_scoring_entry_score INT,
+    player_id_most_selected VARCHAR(3),
+    player_id_most_transferred_in VARCHAR(3),
+    player_id_highest_score VARCHAR(3),
+    player_id_most_captained VARCHAR(3),
+    player_id_most_vice_captained VARCHAR(3),
+    transfers_made INT
+    );
+"""
+
+# ref: teams(team_id)
+QUERY_TABLE = """CREATE TABLE {} (
+    table_position INT PRIMARY KEY CHECK(table_position<=20),
+    team_id VARCHAR(2) NOT NULL UNIQUE,
+    team_name_long VARCHAR(25) NOT NULL UNIQUE,
+    points INT NOT NULL,
+    goal_difference INT NOT NULL,
+    played INT NOT NULL,
+    win INT NOT NULL,
+    draw INT NOT NULL,
+    loss draw INT NOT NULL,
+    goals_scored INT NOT NULL,
+    goals_conceded INT NOT NULL
+    );
+"""
+
+QUERY_PLAYERS_FUTURE = """CREATE TABLE {} (
+    player_id VARCHAR(3),
+    fixture_id VARCHAR(3),
+    fixture_id_long VARCHAR(8) NOT NULL,
+    gameweek VARCHAR(2) NOT NULL,
+    home_team_id VARCHAR(2) NOT NULL,
+    away_team_id VARCHAR(2) NOT NULL,
+    home_team_score INT,
+    away_team_score INT,
+    finished BOOL NOT NULL,
+    minutes INT CHECK(minutes<=90),
+    provisional_start_time BOOL,
+    fixture_home BOOL NOT NULL,
+    difficulty INT CHECK(difficulty<=4),
+    kickoff_datetime TIMESTAMP NOT NULL,
+    PRIMARY KEY (player_id, fixture_id)
+    );
+"""
+
+
+QUERY_PLAYERS_PAST = """CREATE TABLE {} (
+    player_id VARCHAR(2),
+    fixture_id VARCHAR(3),
+    fixture_id_long VARCHAR(8) NOT NULL,
+    gameweek VARCHAR(2) NOT NULL,
+    total_points INT NOT NULL,
+    fixture_home BOOL NOT NULL,
+    home_team_id VARCHAR(2) NOT NULL,
+    away_team_id VARCHAR(2) NOT NULL,
+    home_team_score INT,
+    away_team_score INT,
+    minutes INT NOT NULL,
+    goals_scored INT NOT NULL,
+    assists INT NOT NULL,
+    clean_sheets INT NOT NULL,
+    goals_conceded INT NOT NULL,
+    own_goals INT NOT NULL,
+    penalties_saved INT NOT NULL,
+    penalties_missed INT NOT NULL,
+    yellow_cards INT NOT NULL,
+    red_cards INT NOT NULL,
+    saves INT NOT NULL,
+    bonus INT NOT NULL,
+    bps INT NOT NULL,
+    influence FLOAT(8) NOT NULL,
+    creativity FLOAT(8) NOT NULL,
+    threat FLOAT(8) NOT NULL,
+    ict_index FLOAT(8) NOT NULL,
+    value INT NOT NULL,
+    transfers_balance INT NOT NULL,
+    selected INT NOT NULL,
+    transfers_in INT NOT NULL,
+    transfers_out INT NOT NULL,
+    kickoff_datetime TIMESTAMP NOT NULL,
+    PRIMARY KEY (player_id, fixture_id)
+);
+"""
+
+QUERY_PLAYERS_FULL = """CREATE TABLE {} (
+    player_id VARCHAR(2),
+    fixture_id VARCHAR(3),
+    fixture_id_long VARCHAR(8) NOT NULL,
+    gameweek VARCHAR(2) NOT NULL,
+    team_id VARCHAR(2) NOT NULL,
+    position_id VARCHAR(1) NOT NULL,
+    total_points INT NOT NULL,
+    fixture_home BOOL NOT NULL,
+    home_team_id VARCHAR(2) NOT NULL,
+    away_team_id VARCHAR(2) NOT NULL,
+    home_team_score INT,
+    away_team_score INT,
+    minutes INT NOT NULL,
+    goals_scored INT NOT NULL,
+    assists INT NOT NULL,
+    clean_sheets INT NOT NULL,
+    goals_conceded INT NOT NULL,
+    own_goals INT NOT NULL,
+    penalties_saved INT NOT NULL,
+    penalties_missed INT NOT NULL,
+    yellow_cards INT NOT NULL,
+    red_cards INT NOT NULL,
+    saves INT NOT NULL,
+    bonus INT NOT NULL,
+    bps INT NOT NULL,
+    influence FLOAT(8) NOT NULL,
+    creativity FLOAT(8) NOT NULL,
+    threat FLOAT(8) NOT NULL,
+    ict_index FLOAT(8) NOT NULL,
+    value INT NOT NULL,
+    transfers_balance INT NOT NULL,
+    selected INT NOT NULL,
+    transfers_in INT NOT NULL,
+    transfers_out INT NOT NULL,
+    kickoff_datetime TIMESTAMP NOT NULL,
+    PRIMARY KEY (player_id, gameweek, fixture_id)
+);
+"""
+
+QUERY_PLAYERS_PREVIOUS_SEASONS = """CREATE TABLE {} (
+    player_id_long VARCHAR(6),
+    season_name VARCHAR(7),
+    start_cost INT NOT NULL,
+    end_cost INT NOT NULL,
+    total_points INT NOT NULL,
+    minutes INT NOT NULL,
+    goals_scored INT NOT NULL,
+    assists INT NOT NULL,
+    clean_sheets INT NOT NULL,
+    goals_conceded INT NOT NULL,
+    own_goals INT NOT NULL,
+    penalties_saved INT NOT NULL,
+    penalties_missed INT NOT NULL,
+    yellow_cards INT NOT NULL,
+    red_cards INT NOT NULL,
+    saves INT NOT NULL,
+    bonus INT NOT NULL,
+    bps INT NOT NULL,
+    influence FLOAT(8) NOT NULL,
+    creativity FLOAT(8) NOT NULL,
+    threat FLOAT(8) NOT NULL,
+    ict_index FLOAT(8) NOT NULL,
+    PRIMARY KEY(player_id_long, season_name)
+);
+"""
+
+QUERY_PLAYERS_SUMMARY = """CREATE TABLE {} (
+    player_id VARCHAR(3) PRIMARY KEY,
+    player_id_long VARCHAR(6) NOT NULL UNIQUE,
+    chance_of_playing_next_round INT,
+    chance_of_playing_this_round INT,
+    cost_change_event INT NOT NULL,
+    cost_change_event_fall INT NOT NULL,
+    cost_change_start INT NOT NULL,
+    cost_change_start_fall INT NOT NULL,
+    dreamteam_count INT NOT NULL,
+    position_id VARCHAR(1) NOT NULL,
+    ep_next FLOAT(8) NOT NULL,
+    ep_this FLOAT(8) NOT NULL,
+    gameweek_points INT NOT NULL,
+    first_name VARCHAR(25) NOT NULL,
+    form FLOAT(8) NOT NULL,
+    in_dreamteam BOOL NOT NULL,
+    news VARCHAR(150),
+    news_added_datetime TIMESTAMP,
+    now_cost INT NOT NULL,
+    photo VARCHAR(11) NOT NULL,
+    points_per_game FLOAT(8),
+    second_name VARCHAR(25) NOT NULL,
+    selected_by_percent FLOAT(8) NOT NULL,
+    special BOOL NOT NULL,
+    status VARCHAR(1) NOT NULL,
+    team_id VARCHAR(2) NOT NULL,
+    team_id_long VARCHAR(3) NOT NULL,
+    total_points INT NOT NULL,
+    transfers_in INT NOT NULL,
+    transfers_out INT NOT NULL,
+    transfers_in_event INT NOT NULL,
+    transfers_out_event INT NOT NULL,
+    value_form FLOAT(8) NOT NULL,
+    value_season FLOAT(8) NOT NULL,
+    minutes INT NOT NULL,
+    goals_scored INT NOT NULL,
+    assists INT NOT NULL,
+    clean_sheets INT NOT NULL,
+    goals_conceded INT NOT NULL,
+    own_goals INT NOT NULL,
+    penalties_saved INT NOT NULL,
+    penalties_missed INT NOT NULL,
+    yellow_cards INT NOT NULL,
+    red_cards INT NOT NULL,
+    saves INT NOT NULL,
+    bonus INT NOT NULL,
+    bps INT NOT NULL,
+    influence FLOAT(8) NOT NULL,
+    creativity FLOAT(8) NOT NULL,
+    threat FLOAT(8) NOT NULL,
+    ict_index FLOAT(8) NOT NULL,
+);
+"""
+
+
+QUERY_POSITIONS = """CREATE TABLE {} (
+    position_id VARCHAR(1) PRIMARY KEY,
+    position_name VARCHAR(3) UNIQUE NOT NULL,
+    position_name_long VARCHAR(10) UNIQUE NOT NULL,
+    squad_select INT NOT NULL,
+    squad_min_play INT NOT NULL,
+    squad_max_play INT NOT NULL
+    ;
+"""
+
+QUERY_TEAM_RESULTS = """CREATE TABLE {}(
+    team_id VARCHAR(2) NOT NULL,
+    fixture_id VARCHAR(3) NOT NULL,
+    fixture_id_long VARCHAR(8) NOT NULL,
+    gameweek VARCHAR(2) NOT NULL,
+    opponent_team_id VARCHAR(2) NOT NULL,
+    goals_conceded INT NOT NULL,
+    goals_scored INT NOT NULL,
+    fixture_kickoff_datetime TIMESTAMP NOT NULL,
+    played BOOL NOT NULL,
+    fixture_home BOOL NOT NULL,
+    win INT NOT NULL,
+    draw INT NOT NULL,
+    loss INT NOT NULL,
+    points INT NOT NULL,
+    goal_difference INT NOT NULL,
+    PRIMARY KEY(team_id, fixture_id)
+);
+"""
+
+QUERY_TEAMS = """CREATE TABLE {{ (
+    team_id VARCHAR(2) PRIMARY KEY,
+    team_id_long VARCHAR(3) NOT NULL UNIQUE,
+    team_name_long VARCHAR(25) NOT NULL UNIQUE,
+    team_name VARCHAR(3) NOT NULL UNIQUE,
+    team_strength INT NOT NULL,
+    team_strength_overall_home INT NOT NULL,
+    team_strength_overall_away INT NOT NULL,
+    team_strength_attack_home INT NOT NULL,
+    team_strength_attack_away INT NOT NULL,
+    team_strength_defence_home INT NOT NULL,
+    team_strength_defence_away INT NOT NULL
+);
+"""
+
 
 class BatchSQLUpdate:
 
@@ -168,22 +433,10 @@ class BatchSQLUpdate:
 
 bu_fixtures = BatchSQLUpdate(df_fixtures,
                              engine,
-                             create_query,
+                             QUERY_FIXTURES,
                              'fixtures')
 bu_fixtures.batch_overwrite()
 
-
-
-
-
-#
-# with engine.connect() as con:
-#     con.execute(create_query)
-#     columns = con.execute("""SELECT * FROM fixtures LIMIT 0""").keys()
-#
-# df_load = df_fixtures.reset_index()[columns]
-# df_load.to_sql('fixtures', engine, if_exists='append', index=False)
-#
 # results = pd.read_sql("""SELECT * from fixtures""", con=engine)
 
 # gameweeks - overwrite
