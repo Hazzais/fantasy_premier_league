@@ -7,6 +7,7 @@ from datetime import datetime
 import abc
 
 import sqlalchemy
+import sqlalchemy.exc as sqlaexc
 
 from fpltools.utils import get_datetime
 from fpltools.queries import (QUERY_RECORD, QUERY_PLAYERS_FULL,
@@ -56,14 +57,24 @@ class SQLLoad(abc.ABC):
         self._table_name = table_name
 
     def _table_create(self):
-        with self._dbengine.connect() as con:
-            con.execute(self.query)
+        try:
+            with self._dbengine.connect() as con:
+                con.execute(self.query)
+            logging.info(f'Successfully created {self.table_name}')
+        except sqlaexc.ProgrammingError as e:
+            logging.exception(f'Exception in _table_create for '
+                              f'{self.table_name}')
 
     def _batch_drop_table(self):
         logging.info(f'Dropping table {self._table_name} if it exists')
         query_drop = f"""DROP TABLE IF EXISTS {self._table_name} CASCADE;"""
-        with self._dbengine.connect() as con:
-            con.execute(query_drop)
+        try:
+            with self._dbengine.connect() as con:
+                con.execute(query_drop)
+            logging.info(f'Successfully dropped {self.table_name}')
+        except sqlaexc.ProgrammingError as e:
+            logging.exception(f'Exception in _batch_drop_table for '
+                              f'{self.table_name}')
 
     @abc.abstractmethod
     def _batch_load(self, columns):
