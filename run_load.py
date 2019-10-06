@@ -1,45 +1,24 @@
-import os
-import pickle
 import logging
 import argparse
 import keyring
 from datetime import datetime
-import abc
 
 import sqlalchemy
-import sqlalchemy.exc as sqlaexc
 
+from fpltools.load import (load_pickle_data, BatchSQLUpdate, RecordTable)
+from fpltools.load import (QUERY_RECORD, QUERY_PLAYERS_FULL,
+                           QUERY_PLAYERS_PAST, QUERY_FIXTURES,
+                           QUERY_GAMEWEEKS, QUERY_PLAYERS_FUTURE,
+                           QUERY_PLAYERS_PREVIOUS_SEASONS,
+                           QUERY_PLAYERS_STATUSES, QUERY_PLAYERS_SUMMARY,
+                           QUERY_POSITIONS, QUERY_TABLE, QUERY_TEAM_RESULTS,
+                           QUERY_TEAMS)
 from fpltools.utils import get_datetime
-from fpltools.queries import (QUERY_RECORD, QUERY_PLAYERS_FULL,
-                              QUERY_PLAYERS_PAST, QUERY_FIXTURES,
-                              QUERY_GAMEWEEKS, QUERY_PLAYERS_FUTURE,
-                              QUERY_PLAYERS_PREVIOUS_SEASONS,
-                              QUERY_PLAYERS_STATUSES, QUERY_PLAYERS_SUMMARY,
-                              QUERY_POSITIONS, QUERY_TABLE, QUERY_TEAM_RESULTS,
-                              QUERY_TEAMS)
 
 
 # TODO: perform final transforms (mostly renaming) in transform part of code
 # TODO: Explicit begin() and rollback() for query execution (may require large
 #  rewriting of SQLLoad class
-
-def load_pickle_data(data_name, data_loc):
-    """Load in transformed and pickled dataframes"""
-    logging.info(f'Reading in pickled {data_name} from {data_loc}')
-    try:
-        with open(os.path.join(data_loc, data_name), 'rb') as f:
-            loaded = pickle.load(f)
-    except FileNotFoundError as e:
-        logging.exception('Could not find file')
-    else:
-        logging.info(f'Successfully loaded {data_name}')
-        return loaded
-
-
-def table_get_columns(table_name, dbengine):
-    with dbengine.connect() as con:
-        return con.execute(f"""SELECT * FROM {table_name} LIMIT 0""").keys()
-
 
 def _get_latest_gameweek(dbengine, table_name='gameweeks'):
     with dbengine.connect() as con:
@@ -47,90 +26,6 @@ def _get_latest_gameweek(dbengine, table_name='gameweeks'):
                            MAX(CAST(nullif(gameweek_id, '') AS integer))
                            FROM {table_name} WHERE gameweek_finished""")
     return res.first()[0] + 1
-
-
-class SQLLoad(abc.ABC):
-    def __init__(self, data, dbengine, create_table_query, table_name):
-        self._data = data
-        self._dbengine = dbengine
-        self.query = create_table_query.format(table_name)
-        self._table_name = table_name
-
-    def _table_create(self):
-        try:
-            with self._dbengine.connect() as con:
-                con.execute(self.query)
-            logging.info(f'Successfully created {self.table_name}')
-        except sqlaexc.ProgrammingError as e:
-            logging.exception(f'Exception in _table_create for '
-                              f'{self.table_name}')
-
-    def _batch_drop_table(self):
-        logging.info(f'Dropping table {self._table_name} if it exists')
-        query_drop = f"""DROP TABLE IF EXISTS {self._table_name} CASCADE;"""
-        try:
-            with self._dbengine.connect() as con:
-                con.execute(query_drop)
-            logging.info(f'Successfully dropped {self.table_name}')
-        except sqlaexc.ProgrammingError as e:
-            logging.exception(f'Exception in _batch_drop_table for '
-                              f'{self.table_name}')
-
-    @abc.abstractmethod
-    def _batch_load(self, columns):
-        pass
-
-    def batch_overwrite(self):
-        logging.info(f'Overwriting {self._table_name}')
-        self._batch_drop_table()
-        self._table_create()
-        columns = table_get_columns(self._table_name, self._dbengine)
-        self._batch_load(columns)
-
-    def batch_append(self):
-        logging.info(f'Appending to {self._table_name}')
-        if self._table_name not in self._dbengine.table_names():
-            self._table_create()
-        columns = table_get_columns(self._table_name, self._dbengine)
-        self._batch_load(columns)
-
-
-class BatchSQLUpdate(SQLLoad):
-
-    def __init__(self, data, dbengine, create_table_query, table_name):
-        super().__init__(data, dbengine, create_table_query, table_name)
-        logging.info(f'Beginning batch update for table {self._table_name}')
-
-    def _batch_load(self, columns):
-        logging.info(f'Loading data into {self._table_name}')
-        df_load = self._data.reset_index()[columns]
-        df_load.to_sql(self._table_name, self._dbengine, if_exists='append',
-                       index=False)
-
-
-class RecordTable(SQLLoad):
-
-    def __init__(self, load_datetime, gameweek_now, user, dbengine,
-                 create_table_query, table_name):
-        super().__init__(None, dbengine, create_table_query, table_name)
-        self._load_datetime = load_datetime
-        self._gameweek_now = gameweek_now
-        self._user = user
-        self._insert_vals = self._create_update_vals()
-
-    def _create_update_vals(self):
-        return {'load_datetime': self._load_datetime,
-                'gameweek_now': self._gameweek_now,
-                'username': self._user}
-
-    def _batch_load(self, columns):
-        logging.info(f'Loading data into {self._table_name}')
-        with self._dbengine.connect() as con:
-            con.execute("INSERT INTO record"
-                        "(load_datetime, gameweek_now, username)"
-                        "VALUES"
-                        "(%(load_datetime)s, %(gameweek_now)s, %(username)s)",
-                        self._create_update_vals())
 
 
 if __name__ == '__main__':
