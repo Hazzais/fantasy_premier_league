@@ -4,6 +4,7 @@ import logging
 import argparse
 import keyring
 from datetime import datetime
+import abc
 
 import sqlalchemy
 
@@ -43,14 +44,12 @@ def _get_latest_gameweek(table_name='gameweeks'):
     return res.first()[0] + 1
 
 
-class BatchSQLUpdate:
-
+class SQLLoad(abc.ABC):
     def __init__(self, data, engine, create_table_query, table_name):
         self._data = data
         self._engine = engine
         self.query = create_table_query.format(table_name)
         self._table_name = table_name
-        logging.info(f'Beginning batch update for table {self._table_name}')
 
     def _table_create(self):
         with self._engine.connect() as con:
@@ -62,11 +61,9 @@ class BatchSQLUpdate:
         with self._engine.connect() as con:
             con.execute(query_drop)
 
+    @abc.abstractmethod
     def _batch_load(self, columns):
-        logging.info(f'Loading data into {self._table_name}')
-        df_load = self._data.reset_index()[columns]
-        df_load.to_sql(self._table_name, self._engine, if_exists='append',
-                       index=False)
+        pass
 
     def batch_overwrite(self):
         logging.info(f'Overwriting {self._table_name}')
@@ -83,7 +80,20 @@ class BatchSQLUpdate:
         self._batch_load(columns)
 
 
-class RecordTable(BatchSQLUpdate):
+class BatchSQLUpdate(SQLLoad):
+
+    def __init__(self, data, engine, create_table_query, table_name):
+        super().__init__(data, engine, create_table_query, table_name)
+        logging.info(f'Beginning batch update for table {self._table_name}')
+
+    def _batch_load(self, columns):
+        logging.info(f'Loading data into {self._table_name}')
+        df_load = self._data.reset_index()[columns]
+        df_load.to_sql(self._table_name, self._engine, if_exists='append',
+                       index=False)
+
+
+class RecordTable(SQLLoad):
 
     def __init__(self, load_datetime, gameweek_now, user, engine,
                  create_table_query, table_name):
