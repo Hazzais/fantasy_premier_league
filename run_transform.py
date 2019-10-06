@@ -1,13 +1,12 @@
-import os
-import json
-import re
 import logging
-import pickle
 import argparse
 
 import pandas as pd
 import numpy as np
 
+from fpltools.transform import (load_json, check_unique_index,
+                                check_not_null_index, pickle_data,
+                                pandas_integerstr_to_int)
 from fpltools.utils import get_datetime
 
 if __name__ == '__main__':
@@ -291,11 +290,11 @@ if __name__ == '__main__':
                                on='player_id')
     # For current gameweek (depending on when data is taken), both past and
     # future can contain the same row. This needs to be removed.
-    duplicate_rows = df_players_full.duplicated(subset=players_full_index, keep=False)
+    duplicate_rows = df_players_full.duplicated(subset=players_full_index,
+                                                keep=False)
     drop_rows = pd.isna(df_players_full.total_points) & duplicate_rows
     df_players_full = df_players_full[~drop_rows]
     df_players_full.sort_values(players_full_index, inplace=True)
-
 
     # Data: team results
     logging.info('Beginning transform of team results data')
