@@ -8,21 +8,24 @@ import pandas as pd
 import numpy as np
 
 
+# TODO: add checks for empty data
+
+# TODO: consider whether this should return True for empty data or raise error
 def dval_unique_index(df):
     return len(df.index.unique()) == len(df.index)
 
 
+# TODO: consider whether this should return True for empty data or raise error
 def dval_notnull_index(df):
     df_index = df.index
     if isinstance(df_index, pd.MultiIndex):
-        # REFACTOR: improve this process (unimportant)
-        nulls = 0
-        lvls = df_index.levels
-        for lvls_f in lvls:
-            for lvls_f2 in lvls_f:
-                if pd.isnull(lvls_f2):
-                    nulls + 1  # noqa
-        return nulls == 0
+        nlevels = df_index.nlevels
+        for lvl in range(0, nlevels):
+            lvls = df_index.get_level_values(lvl)
+            if sum(pd.isnull(lvls)) > 0:
+                return False
+        else:
+            return True
     else:
         return sum(df_index.isnull()) == 0
 
@@ -85,5 +88,6 @@ def pickle_data(data, data_name, data_loc):
             pickle.dump(data, f)
     except FileNotFoundError as e:
         logging.exception('Unable to find save location')
+        raise FileNotFoundError(e)
     else:
         logging.info(f'Successfully saved {data_name}')
