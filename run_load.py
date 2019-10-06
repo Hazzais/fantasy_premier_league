@@ -58,7 +58,7 @@ class BatchSQLUpdate:
 
     def _batch_drop_table(self):
         logging.info(f'Dropping table {self._table_name} if it exists')
-        query_drop = f"""DROP TABLE IF EXISTS {self._table_name};"""
+        query_drop = f"""DROP TABLE IF EXISTS {self._table_name} CASCADE;"""
         with self._engine.connect() as con:
             con.execute(query_drop)
 
