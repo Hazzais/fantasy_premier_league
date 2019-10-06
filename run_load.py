@@ -18,6 +18,10 @@ from fpltools.queries import (QUERY_RECORD, QUERY_PLAYERS_FULL,
                               QUERY_TEAMS)
 
 
+# TODO: perform final transforms (mostly renaming) in transform part of code
+# TODO: Explicit begin() and rollback() for query execution (may require large
+#  rewriting of SQLLoad class
+
 def load_pickle_data(data_name, data_loc):
     """Load in transformed and pickled dataframes"""
     logging.info(f'Reading in pickled {data_name} from {data_loc}')
@@ -141,19 +145,12 @@ if __name__ == '__main__':
                              'keyring credentials for this database')
     args = parser.parse_args()
 
-    # DATA_LOC = args.data_input
-    # DB_HOST = args.host
-    # DB_PORT = args.port
-    # DB_NAME = args.db_name
-    # DB_USER = args.db_user
-    # DB_KEYRING_NAME = args.db_keyring_name
-    DATA_LOC = 'data/'
-    DB_HOST = 'localhost'
-    DB_PORT = 5432
-    DB_NAME = 'fpl_data'
-    DB_USER = 'postgres'
-    DB_KEYRING_NAME = 'postgres_db_fpl_data'
-
+    DATA_LOC = args.data_input
+    DB_HOST = args.host
+    DB_PORT = args.port
+    DB_NAME = args.db_name
+    DB_USER = args.db_user
+    DB_KEYRING_NAME = args.db_keyring_name
     DB_PSWD = keyring.get_password(DB_KEYRING_NAME, DB_USER)
 
     logging.basicConfig(level=logging.INFO,
@@ -163,6 +160,7 @@ if __name__ == '__main__':
 
     load_date = datetime.utcnow().isoformat().replace('T', ' ')
 
+    # Dataframes to be loaded are originally pickled from run_transform.py
     df_fixtures = load_pickle_data('transformed_fixtures.pkl',
                                    DATA_LOC)
     df_gameweeks = load_pickle_data('transformed_gameweeks.pkl',
@@ -189,7 +187,7 @@ if __name__ == '__main__':
     engine = sqlalchemy.create_engine(
         f'postgresql://{DB_USER}:{DB_PSWD}@{DB_HOST}:{DB_PORT}/{DB_NAME}')
 
-    # TODO: perform in transform part of code
+    # Final transformations to ensure foreign keys etc. are consistent
     # league_table -> name index
     df_league_table.index.rename('table_position', inplace=True)
     # rename gameweek -> gameweek_id EVERYWHERE
@@ -202,6 +200,7 @@ if __name__ == '__main__':
     df_players_past.rename(columns={'gameweek': 'gameweek_id'}, inplace=True)
     df_fixtures.rename(columns={'gameweek': 'gameweek_id'}, inplace=True)
 
+    # Players' previous season data
     bu_players_previous_seasons =\
         BatchSQLUpdate(df_players_previous_seasons,
                        engine,
@@ -209,78 +208,88 @@ if __name__ == '__main__':
                        'players_previous_seasons')
     bu_players_previous_seasons.batch_overwrite()
 
+    # Positional data
     bu_positions = BatchSQLUpdate(df_positions,
                                   engine,
                                   QUERY_POSITIONS,
                                   'positions')
     bu_positions.batch_overwrite()
 
+    # Team data
     bu_teams = BatchSQLUpdate(df_teams,
                               engine,
                               QUERY_TEAMS,
                               'teams')
     bu_teams.batch_overwrite()
 
+    # League table data
     bu_league_table = BatchSQLUpdate(df_league_table,
                                      engine,
                                      QUERY_TABLE,
                                      'league_table')
     bu_league_table.batch_overwrite()
 
+    # Player summary data
     bu_players_summary = BatchSQLUpdate(df_players_summary,
                                         engine,
                                         QUERY_PLAYERS_SUMMARY,
                                         'players_summary')
     bu_players_summary.batch_overwrite()
 
+    # Gameweeks data
     bu_gameweeks = BatchSQLUpdate(df_gameweeks,
                                   engine,
                                   QUERY_GAMEWEEKS,
                                   'gameweeks')
     bu_gameweeks.batch_overwrite()
+
+    # Fixtures data
     bu_fixtures = BatchSQLUpdate(df_fixtures,
                                  engine,
                                  QUERY_FIXTURES,
                                  'fixtures')
     bu_fixtures.batch_overwrite()
 
+    # Upcoming fixtures player data
     bu_players_future = BatchSQLUpdate(df_players_future,
                                        engine,
                                        QUERY_PLAYERS_FUTURE,
                                        'players_future')
     bu_players_future.batch_overwrite()
 
+    # Previous fixtures (current season) player data
     bu_players_past = BatchSQLUpdate(df_players_past,
                                      engine,
                                      QUERY_PLAYERS_PAST,
                                      'players_past')
     bu_players_past.batch_overwrite()
 
+    # Full player data
     bu_players_full = BatchSQLUpdate(df_players_full,
                                      engine,
                                      QUERY_PLAYERS_FULL,
                                      'players_full')
     bu_players_full.batch_overwrite()
 
+    # Team results data
     bu_team_results = BatchSQLUpdate(df_team_results,
                                      engine,
                                      QUERY_TEAM_RESULTS,
                                      'team_results')
     bu_team_results.batch_overwrite()
 
+    # Player statuses (i.e. appending statuses to previous gameweeks)
     df_players_statuses = df_players_summary.copy().reset_index()
-
     gw_now = _get_latest_gameweek(engine)
-
     df_players_statuses['gameweek_now'] = str(gw_now)
     df_players_statuses['load_datetime'] = load_date
-
     bu_players_statuses = BatchSQLUpdate(df_players_statuses,
                                          engine,
                                          QUERY_PLAYERS_STATUSES,
                                          'players_statuses')
     bu_players_statuses.batch_append()
 
+    # Record of batch update
     bu_record = RecordTable(load_date,
                             gw_now,
                             DB_USER,
