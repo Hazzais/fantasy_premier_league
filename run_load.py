@@ -158,6 +158,10 @@ class BatchSQLUpdate:
         self._table_name = table_name
         logging.info(f'Beginning batch update for table {self._table_name}')
 
+    def _table_create(self):
+        with self._engine.connect() as con:
+            con.execute(self.query)
+
     def _batch_drop_table(self):
         logging.info(f'Dropping table {self._table_name} if it exists')
         query_drop = f"""DROP TABLE IF EXISTS {self._table_name};"""
@@ -173,21 +177,16 @@ class BatchSQLUpdate:
     def batch_overwrite(self):
         logging.info(f'Overwriting {self._table_name}')
         self._batch_drop_table()
-        with self._engine.connect() as con:
-            con.execute(self.query)
+        self._table_create()
         columns = table_get_columns(self._table_name, self._engine)
         self._batch_load(columns)
 
     def batch_append(self):
         logging.info(f'Appending to {self._table_name}')
         if self._table_name not in engine.table_names():
-            with self._engine.connect() as con:
-                con.execute(self.query)
+            self._table_create()
         columns = table_get_columns(self._table_name, self._engine)
         self._batch_load(columns)
-
-    def add_foreign_key_constraint(self):
-        pass
 
 
 bu_players_previous_seaons = BatchSQLUpdate(df_players_previous_seasons,
@@ -522,13 +521,11 @@ bu_team_results.batch_overwrite()
 
 
 
-results = pd.read_sql("""SELECT * from players_summary""", con=engine)
-
 
 
 # players_summary_cont - append
 
-load_date = datetime.utcnow()
+load_date = datetime.utcnow().isoformat().replace('T', ' ')
 df_players_statuses = df_players_summary.copy().reset_index()
 
 with engine.connect() as con:
@@ -609,7 +606,48 @@ bu_players_statuses.batch_append()
 # gameweek_now
 # load_datetime
 
+# gameweek need not reference gameweek primary key as at the end of the season
+# this table may still be added to (e.g. gameweek above 'maximum')
+QUERY_RECORD = """CREATE TABLE {} (
+    load_datetime TIMESTAMP,
+    gameweek_now VARCHAR(2),
+    username VARCHAR(25),
+    PRIMARY KEY (load_datetime)
+);
+"""
 
 
+class RecordTable(BatchSQLUpdate):
+
+    def __init__(self, load_datetime, gameweek_now, user, engine, create_table_query,
+                 table_name):
+        super().__init__(None, engine, create_table_query, table_name)
+        self._load_datetime = load_datetime
+        self._gameweek_now = gameweek_now
+        self._user = user
+        self._insert_vals = self._create_update_vals()
+
+    def _create_update_vals(self):
+        return {'load_datetime': self._load_datetime,
+                'gameweek_now': self._gameweek_now,
+                'username': self._user}
+
+    def _batch_load(self, columns):
+        logging.info(f'Loading data into {self._table_name}')
+        with engine.connect() as con:
+            # con.execute("INSERT INTO record (load_datetime, gameweek_now)"
+            #             "VALUES (%s, %s)",
+            #             (self._load_datetime, self._gameweek_now))
+            con.execute("INSERT INTO record (load_datetime, gameweek_now, username)"
+                        "VALUES (%(load_datetime)s, %(gameweek_now)s, %(username)s)",
+                        self._create_update_vals())
+
+
+bu_record = RecordTable(load_date, gw_now, DB_USER, engine, QUERY_RECORD, 'record')
+bu_record.batch_append()
+
+bu_record._batch_drop_table()
+
+results = pd.read_sql("""SELECT * from record""", con=engine)
 
 
