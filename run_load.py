@@ -31,13 +31,13 @@ def load_pickle_data(data_name, data_loc):
         return loaded
 
 
-def table_get_columns(table_name, engine):
-    with engine.connect() as con:
+def table_get_columns(table_name, dbengine):
+    with dbengine.connect() as con:
         return con.execute(f"""SELECT * FROM {table_name} LIMIT 0""").keys()
 
 
-def _get_latest_gameweek(table_name='gameweeks'):
-    with engine.connect() as con:
+def _get_latest_gameweek(dbengine, table_name='gameweeks'):
+    with dbengine.connect() as con:
         res = con.execute(f"""SELECT
                            MAX(CAST(nullif(gameweek_id, '') AS integer))
                            FROM {table_name} WHERE gameweek_finished""")
@@ -45,20 +45,20 @@ def _get_latest_gameweek(table_name='gameweeks'):
 
 
 class SQLLoad(abc.ABC):
-    def __init__(self, data, engine, create_table_query, table_name):
+    def __init__(self, data, dbengine, create_table_query, table_name):
         self._data = data
-        self._engine = engine
+        self._dbengine = dbengine
         self.query = create_table_query.format(table_name)
         self._table_name = table_name
 
     def _table_create(self):
-        with self._engine.connect() as con:
+        with self._dbengine.connect() as con:
             con.execute(self.query)
 
     def _batch_drop_table(self):
         logging.info(f'Dropping table {self._table_name} if it exists')
         query_drop = f"""DROP TABLE IF EXISTS {self._table_name} CASCADE;"""
-        with self._engine.connect() as con:
+        with self._dbengine.connect() as con:
             con.execute(query_drop)
 
     @abc.abstractmethod
@@ -69,35 +69,35 @@ class SQLLoad(abc.ABC):
         logging.info(f'Overwriting {self._table_name}')
         self._batch_drop_table()
         self._table_create()
-        columns = table_get_columns(self._table_name, self._engine)
+        columns = table_get_columns(self._table_name, self._dbengine)
         self._batch_load(columns)
 
     def batch_append(self):
         logging.info(f'Appending to {self._table_name}')
-        if self._table_name not in engine.table_names():
+        if self._table_name not in self._dbengine.table_names():
             self._table_create()
-        columns = table_get_columns(self._table_name, self._engine)
+        columns = table_get_columns(self._table_name, self._dbengine)
         self._batch_load(columns)
 
 
 class BatchSQLUpdate(SQLLoad):
 
-    def __init__(self, data, engine, create_table_query, table_name):
-        super().__init__(data, engine, create_table_query, table_name)
+    def __init__(self, data, dbengine, create_table_query, table_name):
+        super().__init__(data, dbengine, create_table_query, table_name)
         logging.info(f'Beginning batch update for table {self._table_name}')
 
     def _batch_load(self, columns):
         logging.info(f'Loading data into {self._table_name}')
         df_load = self._data.reset_index()[columns]
-        df_load.to_sql(self._table_name, self._engine, if_exists='append',
+        df_load.to_sql(self._table_name, self._dbengine, if_exists='append',
                        index=False)
 
 
 class RecordTable(SQLLoad):
 
-    def __init__(self, load_datetime, gameweek_now, user, engine,
+    def __init__(self, load_datetime, gameweek_now, user, dbengine,
                  create_table_query, table_name):
-        super().__init__(None, engine, create_table_query, table_name)
+        super().__init__(None, dbengine, create_table_query, table_name)
         self._load_datetime = load_datetime
         self._gameweek_now = gameweek_now
         self._user = user
@@ -110,7 +110,7 @@ class RecordTable(SQLLoad):
 
     def _batch_load(self, columns):
         logging.info(f'Loading data into {self._table_name}')
-        with engine.connect() as con:
+        with self._dbengine.connect() as con:
             con.execute("INSERT INTO record"
                         "(load_datetime, gameweek_now, username)"
                         "VALUES"
@@ -270,7 +270,7 @@ if __name__ == '__main__':
 
     df_players_statuses = df_players_summary.copy().reset_index()
 
-    gw_now = _get_latest_gameweek()
+    gw_now = _get_latest_gameweek(engine)
 
     df_players_statuses['gameweek_now'] = str(gw_now)
     df_players_statuses['load_datetime'] = load_date
