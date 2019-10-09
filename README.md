@@ -10,3 +10,5 @@ End goals:
 Currently developing everything locally but looking to move to (cheap) cloud-based infrastructure to host database and dashboard/web-app.
 
 This is a personal project so I don't claim everything to be correct or fully robust, at least to start with!
+
+[![Build Status](https://travis-ci.org/Hazzais/fantasy_premier_league.svg?branch=develop)](https://travis-ci.org/Hazzais/fantasy_premier_league)
