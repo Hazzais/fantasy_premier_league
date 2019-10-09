@@ -303,7 +303,7 @@ def test_json_load_correct():
     with open(fname, 'w') as f:
         json.dump(to_json_data, f)
 
-    found_json = load_json('.', fname)
+    found_json = load_json(fname, '.')
     assert found_json == to_json_data
     os.remove(fname)
 
@@ -317,7 +317,7 @@ def test_json_load_incorrect_path():
         pass
 
     with pytest.raises(FileNotFoundError):
-        load_json('.', non_existant_file)
+        load_json(non_existant_file, '.')
 
 
 def test_pickle_correct():
