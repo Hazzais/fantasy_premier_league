@@ -374,6 +374,7 @@ if __name__ == '__main__':
                          inplace=True)
     df_table[tbl_cols] = df_table[tbl_cols].applymap(pandas_integerstr_to_int)
     df_table.reset_index(drop=True, inplace=True)
+    df_table.index.rename('table_position', inplace=True)
     logging.info('Completed transform of Premier League table data')
 
     # Set indexes (primary keys) of tables

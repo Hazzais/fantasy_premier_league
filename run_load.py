@@ -95,7 +95,6 @@ if __name__ == '__main__':
 
     # Final transformations to ensure foreign keys etc. are consistent
     # league_table -> name index
-    df_league_table.index.rename('table_position', inplace=True)
     # rename gameweek -> gameweek_id EVERYWHERE
     df_gameweeks.index.rename('gameweek_id', inplace=True)
     df_team_results.rename(columns={'gameweek': 'gameweek_id'}, inplace=True)
