@@ -69,7 +69,8 @@ if __name__ == '__main__':
         pd.to_datetime(df_fixtures['kickoff_time'], errors='coerce')
     df_fixtures.drop(columns=['stats'] + fixtures_drop, inplace=True)
     df_fixtures.rename(columns=fixtures_rename, inplace=True)
-    df_fixtures[fixtures_str_cols] = df_fixtures[fixtures_str_cols].astype(str)
+    df_fixtures[fixtures_str_cols] = df_fixtures[fixtures_str_cols] \
+        .applymap(pandas_integerstr_to_int)
     df_fixtures.sort_values(fixtures_index, inplace=True)
     logging.info('Completed transform of fixtures data')
 
@@ -135,7 +136,8 @@ if __name__ == '__main__':
     df_teams = pd.DataFrame(main_data['teams'])
     df_teams.rename(columns=teams_rename, inplace=True)
     df_teams.drop(columns=teams_drop, inplace=True)
-    df_teams[teams_str_cols] = df_teams[teams_str_cols].astype(str)
+    df_teams[teams_str_cols] = df_teams[teams_str_cols] \
+        .applymap(pandas_integerstr_to_int)
     df_teams.sort_values(teams_index, inplace=True)
     logging.info('Completed transform of teams data')
 
@@ -152,8 +154,9 @@ if __name__ == '__main__':
     df_positions = pd.DataFrame(main_data['element_types'])
     df_positions.rename(columns=positions_rename, inplace=True)
     df_positions.drop(columns=positions_drop, inplace=True)
-    df_positions[positions_str_cols] =\
-        df_positions[positions_str_cols].astype(str)
+    df_positions[positions_str_cols] = df_positions[positions_str_cols] \
+        .applymap(pandas_integerstr_to_int)
+
     df_positions.sort_values(positions_index, inplace=True)
     logging.info('Completed transform of positions data')
 
@@ -177,8 +180,8 @@ if __name__ == '__main__':
         errors='coerce')
     df_players_sum.rename(columns=players_sum_rename, inplace=True)
     df_players_sum.drop(columns=players_sum_drop, inplace=True)
-    df_players_sum[players_sum_str_cols] =\
-        df_players_sum[players_sum_str_cols].astype(str)
+    df_players_sum[players_sum_str_cols] = df_players_sum[players_sum_str_cols] \
+        .applymap(pandas_integerstr_to_int)
     df_players_sum.sort_values(players_sum_index, inplace=True)
 
     # Data: players - one row per player per fixture with stats for that
@@ -207,7 +210,8 @@ if __name__ == '__main__':
     df_players_prev_seasons.drop(columns=players_prev_seasons_drop,
                                  inplace=True)
     df_players_prev_seasons[players_prev_seasons_str_cols] =\
-        df_players_prev_seasons[players_prev_seasons_str_cols].astype(str)
+        df_players_prev_seasons[players_prev_seasons_str_cols]\
+            .applymap(pandas_integerstr_to_int)
     df_players_prev_seasons.sort_values(players_prev_seasons_index,
                                         inplace=True)
     logging.info('Completed transform of player previous seasons data')
@@ -230,8 +234,8 @@ if __name__ == '__main__':
         df_players_past['kickoff_time'],
         errors='coerce')
     df_players_past.drop(columns=players_past_drop, inplace=True)
-    df_players_past[players_past_str_cols] =\
-        df_players_past[players_past_str_cols].astype(str)
+    df_players_past[players_past_str_cols] = df_players_past[players_past_str_cols] \
+            .applymap(pandas_integerstr_to_int)
     df_players_past = pd.merge(df_players_past, df_fixtures[
         ['fixture_id', 'fixture_id_long', 'away_team_id', 'home_team_id']],
                                how='inner',
@@ -261,8 +265,9 @@ if __name__ == '__main__':
     df_players_future['kickoff_datetime'] =\
         pd.to_datetime(df_players_future['kickoff_time'], errors='coerce')
     df_players_future.drop(columns=players_future_drop, inplace=True)
-    df_players_future[players_future_str_cols] =\
-        df_players_future[players_future_str_cols].astype(str)
+    df_players_future[players_future_str_cols] = df_players_future[players_future_str_cols] \
+        .applymap(pandas_integerstr_to_int)
+
     df_players_future = pd.merge(df_players_future,
                                  df_fixtures[['fixture_id',
                                               'fixture_id_long']],
@@ -367,7 +372,7 @@ if __name__ == '__main__':
     df_table.sort_values(['points', 'goal_difference', 'goals_scored'],
                          ascending=False,
                          inplace=True)
-    df_table[tbl_cols] = df_table[tbl_cols].astype(int)
+    df_table[tbl_cols] = df_table[tbl_cols].applymap(pandas_integerstr_to_int)
     df_table.reset_index(drop=True, inplace=True)
     logging.info('Completed transform of Premier League table data')
 
