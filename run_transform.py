@@ -1,5 +1,6 @@
 import logging
 import argparse
+import warnings
 
 import pandas as pd
 import numpy as np
@@ -42,7 +43,7 @@ if __name__ == '__main__':
     # Data: fixtures
     logging.info('Beginning transform of fixtures data')
     fixtures_rename = {'code': 'fixture_id_long',
-                       'event': 'gameweek',
+                       'event': 'gameweek_id',
                        'finished': 'fixture_finished',
                        'finished_provisional': 'fixture_finished_provisional',
                        'id': 'fixture_id',
@@ -59,7 +60,7 @@ if __name__ == '__main__':
     fixtures_drop = ['kickoff_time', 'provisional_start_time']
     fixtures_str_cols = ['fixture_id',
                          'fixture_id_long',
-                         'gameweek',
+                         'gameweek_id',
                          'away_team_id',
                          'home_team_id']
     fixtures_index = ['fixture_id']
@@ -69,13 +70,28 @@ if __name__ == '__main__':
         pd.to_datetime(df_fixtures['kickoff_time'], errors='coerce')
     df_fixtures.drop(columns=['stats'] + fixtures_drop, inplace=True)
     df_fixtures.rename(columns=fixtures_rename, inplace=True)
-    df_fixtures[fixtures_str_cols] = df_fixtures[fixtures_str_cols].astype(str)
+    df_fixtures[fixtures_str_cols] = df_fixtures[fixtures_str_cols] \
+        .applymap(pandas_integerstr_to_int)
     df_fixtures.sort_values(fixtures_index, inplace=True)
+
+    # Case exists where if a fixture has been postponed without being rescheduled,
+    # the gameweek will be null in certain tables (it won't appear in gameweeks).
+    # This is a non-fatal error, but it requires rows to be dropped from later
+    # table(s) (df_players_future) so a warning must be displayed.
+    if sum(df_fixtures.gameweek_id.isna()):
+        missing_gameweeks = True
+        warn_msg = "At least one fixture does not have an assigned gameweek. " \
+                   "Records may be dropped in player tables to accommodate this."
+        warnings.warn(warn_msg)
+    else:
+        missing_gameweeks = False
+    logging.warning(warn_msg)
+
     logging.info('Completed transform of fixtures data')
 
     # Data: gameweeks
     logging.info('Beginning gameweek of fixtures data')
-    gameweek_rename = {'id': 'gameweek',
+    gameweek_rename = {'id': 'gameweek_id',
                        'name': 'gameweek_name',
                        'finished': 'gameweek_finished',
                        'data_checked': 'gameweek_data_checked',
@@ -94,8 +110,8 @@ if __name__ == '__main__':
                      'deadline_time_game_offset',
                      'chip_plays',
                      'top_element_info']
-    gameweek_index = ['gameweek']
-    gameweek_str_cols = ['gameweek',
+    gameweek_index = ['gameweek_id']
+    gameweek_str_cols = ['gameweek_id',
                          'highest_scoring_entry',
                          'player_id_most_selected',
                          'player_id_most_transferred_in',
@@ -135,7 +151,8 @@ if __name__ == '__main__':
     df_teams = pd.DataFrame(main_data['teams'])
     df_teams.rename(columns=teams_rename, inplace=True)
     df_teams.drop(columns=teams_drop, inplace=True)
-    df_teams[teams_str_cols] = df_teams[teams_str_cols].astype(str)
+    df_teams[teams_str_cols] = df_teams[teams_str_cols] \
+        .applymap(pandas_integerstr_to_int)
     df_teams.sort_values(teams_index, inplace=True)
     logging.info('Completed transform of teams data')
 
@@ -152,15 +169,15 @@ if __name__ == '__main__':
     df_positions = pd.DataFrame(main_data['element_types'])
     df_positions.rename(columns=positions_rename, inplace=True)
     df_positions.drop(columns=positions_drop, inplace=True)
-    df_positions[positions_str_cols] =\
-        df_positions[positions_str_cols].astype(str)
+    df_positions[positions_str_cols] = df_positions[positions_str_cols] \
+        .applymap(pandas_integerstr_to_int)
+
     df_positions.sort_values(positions_index, inplace=True)
     logging.info('Completed transform of positions data')
 
     # Data: players - single row per player with current stats for this point
     # and aggregated up to this point
-    logging.info('Beginning transform of fixtures data')
-    logging.info('Completed transform of fixtures data')
+    logging.info('Beginning transform of player summary data')
     players_sum_rename = {'code': 'player_id_long',
                           'element_type': 'position_id',
                           'event_points': 'gameweek_points',
@@ -177,9 +194,10 @@ if __name__ == '__main__':
         errors='coerce')
     df_players_sum.rename(columns=players_sum_rename, inplace=True)
     df_players_sum.drop(columns=players_sum_drop, inplace=True)
-    df_players_sum[players_sum_str_cols] =\
-        df_players_sum[players_sum_str_cols].astype(str)
+    df_players_sum[players_sum_str_cols] = df_players_sum[players_sum_str_cols] \
+        .applymap(pandas_integerstr_to_int)
     df_players_sum.sort_values(players_sum_index, inplace=True)
+    logging.info('Completed transform of player summary data')
 
     # Data: players - one row per player per fixture with stats for that
     # fixture only
@@ -207,7 +225,8 @@ if __name__ == '__main__':
     df_players_prev_seasons.drop(columns=players_prev_seasons_drop,
                                  inplace=True)
     df_players_prev_seasons[players_prev_seasons_str_cols] =\
-        df_players_prev_seasons[players_prev_seasons_str_cols].astype(str)
+        df_players_prev_seasons[players_prev_seasons_str_cols]\
+            .applymap(pandas_integerstr_to_int)
     df_players_prev_seasons.sort_values(players_prev_seasons_index,
                                         inplace=True)
     logging.info('Completed transform of player previous seasons data')
@@ -218,10 +237,10 @@ if __name__ == '__main__':
                            'fixture': 'fixture_id',
                            'team_h_score': 'home_team_score',
                            'team_a_score': 'away_team_score',
-                           'round': 'gameweek',
+                           'round': 'gameweek_id',
                            'was_home': 'fixture_home'}
     players_past_drop = ['kickoff_time', 'opponent_team']
-    players_past_str_cols = ['player_id', 'fixture_id', 'gameweek']
+    players_past_str_cols = ['player_id', 'fixture_id', 'gameweek_id']
     players_past_index = ['player_id', 'fixture_id']
     df_players_past = pd.concat(df_players_past)
 
@@ -230,8 +249,8 @@ if __name__ == '__main__':
         df_players_past['kickoff_time'],
         errors='coerce')
     df_players_past.drop(columns=players_past_drop, inplace=True)
-    df_players_past[players_past_str_cols] =\
-        df_players_past[players_past_str_cols].astype(str)
+    df_players_past[players_past_str_cols] = df_players_past[players_past_str_cols] \
+            .applymap(pandas_integerstr_to_int)
     df_players_past = pd.merge(df_players_past, df_fixtures[
         ['fixture_id', 'fixture_id_long', 'away_team_id', 'home_team_id']],
                                how='inner',
@@ -243,7 +262,7 @@ if __name__ == '__main__':
 
     # Data: players' remaining fixtures
     logging.info('Beginning transform of remaining player fixtures data')
-    player_future_rename = {'event': 'gameweek',
+    player_future_rename = {'event': 'gameweek_id',
                             'code': 'fixture_id_long',
                             'team_h': 'home_team_id',
                             'team_a': 'away_team_id',
@@ -252,7 +271,7 @@ if __name__ == '__main__':
                             'is_home': 'fixture_home'}
     players_future_drop = ['kickoff_time', 'event_name']
     players_future_str_cols = ['fixture_id_long',
-                               'gameweek',
+                               'gameweek_id',
                                'home_team_id',
                                'away_team_id']
     players_future_index = ['player_id', 'fixture_id_long']
@@ -261,8 +280,22 @@ if __name__ == '__main__':
     df_players_future['kickoff_datetime'] =\
         pd.to_datetime(df_players_future['kickoff_time'], errors='coerce')
     df_players_future.drop(columns=players_future_drop, inplace=True)
-    df_players_future[players_future_str_cols] =\
-        df_players_future[players_future_str_cols].astype(str)
+
+    # Account for unscheduled games (otherwise there will be primary key issues with the
+    # gameweek later)
+    if missing_gameweeks:
+        missing_gameweek_player_rows = df_players_future['gameweek_id'].isna()
+        n_missing_gameweek_player_rows = np.sum(missing_gameweek_player_rows)
+        n_missing_gameweek_fixtures =\
+            df_players_future.loc[missing_gameweek_player_rows, 'fixture_id_long'].nunique()
+        logging.info(f"There are {n_missing_gameweek_player_rows} player rows having been "
+                     f"deleted due to {n_missing_gameweek_fixtures} fixtures which have not "
+                     f"been (re)scheduled. These will be deleted.")
+        df_players_future = df_players_future[~missing_gameweek_player_rows]
+
+    df_players_future[players_future_str_cols] = df_players_future[players_future_str_cols] \
+        .applymap(pandas_integerstr_to_int)
+
     df_players_future = pd.merge(df_players_future,
                                  df_fixtures[['fixture_id',
                                               'fixture_id_long']],
@@ -275,7 +308,7 @@ if __name__ == '__main__':
     # Data: players - one row per fixture for this season's previous and
     # remaining fixtures
     logging.info('Combining previous and remaining player fixture data')
-    players_full_index = ['player_id', 'gameweek', 'fixture_id']
+    players_full_index = ['player_id', 'gameweek_id', 'fixture_id']
     df_players_full = pd.concat((df_players_past, df_players_future),
                                 sort=False)
 
@@ -300,7 +333,7 @@ if __name__ == '__main__':
     logging.info('Beginning transform of team results data')
     team_results_cols = ['fixture_id_long',
                          'fixture_id',
-                         'gameweek',
+                         'gameweek_id',
                          'away_team_id',
                          'home_team_id',
                          'away_team_score',
@@ -367,8 +400,9 @@ if __name__ == '__main__':
     df_table.sort_values(['points', 'goal_difference', 'goals_scored'],
                          ascending=False,
                          inplace=True)
-    df_table[tbl_cols] = df_table[tbl_cols].astype(int)
+    df_table[tbl_cols] = df_table[tbl_cols].applymap(pandas_integerstr_to_int)
     df_table.reset_index(drop=True, inplace=True)
+    df_table.index.rename('table_position', inplace=True)
     logging.info('Completed transform of Premier League table data')
 
     # Set indexes (primary keys) of tables
