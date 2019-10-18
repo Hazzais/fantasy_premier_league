@@ -1,5 +1,6 @@
 import logging
 import argparse
+import warnings
 
 import pandas as pd
 import numpy as np
@@ -279,6 +280,19 @@ if __name__ == '__main__':
     df_players_future['kickoff_datetime'] =\
         pd.to_datetime(df_players_future['kickoff_time'], errors='coerce')
     df_players_future.drop(columns=players_future_drop, inplace=True)
+
+    # Account for unscheduled games (otherwise there will be primary key issues with the
+    # gameweek later)
+    if missing_gameweeks:
+        missing_gameweek_player_rows = df_players_future['gameweek_id'].isna()
+        n_missing_gameweek_player_rows = np.sum(missing_gameweek_player_rows)
+        n_missing_gameweek_fixtures =\
+            df_players_future.loc[missing_gameweek_player_rows, 'fixture_id_long'].nunique()
+        logging.info(f"There are {n_missing_gameweek_player_rows} player rows having been "
+                     f"deleted due to {n_missing_gameweek_fixtures} fixtures which have not "
+                     f"been (re)scheduled. These will be deleted.")
+        df_players_future = df_players_future[~missing_gameweek_player_rows]
+
     df_players_future[players_future_str_cols] = df_players_future[players_future_str_cols] \
         .applymap(pandas_integerstr_to_int)
 
