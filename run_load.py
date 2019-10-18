@@ -93,18 +93,6 @@ if __name__ == '__main__':
     engine = sqlalchemy.create_engine(
         f'postgresql://{DB_USER}:{DB_PSWD}@{DB_HOST}:{DB_PORT}/{DB_NAME}')
 
-    # Final transformations to ensure foreign keys etc. are consistent
-    # league_table -> name index
-    # rename gameweek -> gameweek_id EVERYWHERE
-    df_gameweeks.index.rename('gameweek_id', inplace=True)
-    df_team_results.rename(columns={'gameweek': 'gameweek_id'}, inplace=True)
-    df_players_full.rename(columns={'gameweek': 'gameweek_id'}, inplace=True)
-    df_players_full.index.rename(['player_id', 'gameweek_id', 'fixture_id'],
-                                 inplace=True)
-    df_players_future.rename(columns={'gameweek': 'gameweek_id'}, inplace=True)
-    df_players_past.rename(columns={'gameweek': 'gameweek_id'}, inplace=True)
-    df_fixtures.rename(columns={'gameweek': 'gameweek_id'}, inplace=True)
-
     # Players' previous season data
     bu_players_previous_seasons =\
         BatchSQLUpdate(df_players_previous_seasons,
