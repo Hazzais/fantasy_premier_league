@@ -177,8 +177,7 @@ if __name__ == '__main__':
 
     # Data: players - single row per player with current stats for this point
     # and aggregated up to this point
-    logging.info('Beginning transform of fixtures data')
-    logging.info('Completed transform of fixtures data')
+    logging.info('Beginning transform of player summary data')
     players_sum_rename = {'code': 'player_id_long',
                           'element_type': 'position_id',
                           'event_points': 'gameweek_points',
@@ -198,6 +197,7 @@ if __name__ == '__main__':
     df_players_sum[players_sum_str_cols] = df_players_sum[players_sum_str_cols] \
         .applymap(pandas_integerstr_to_int)
     df_players_sum.sort_values(players_sum_index, inplace=True)
+    logging.info('Completed transform of player summary data')
 
     # Data: players - one row per player per fixture with stats for that
     # fixture only
