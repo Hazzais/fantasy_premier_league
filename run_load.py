@@ -30,9 +30,7 @@ def _get_latest_gameweek(dbengine, table_name='gameweeks'):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Load into postresql db')
-    parser.add_argument('data_input',
-                        type=str,
-                        help='path from which to load data')
+
     parser.add_argument('host',
                         type=str,
                         help='database host')
@@ -49,6 +47,10 @@ if __name__ == '__main__':
                         type=str,
                         help='name for service used when setting keyring '
                              'keyring credentials for this database')
+    parser.add_argument('--data_input',
+                        type=str,
+                        default='data/',
+                        help='path from which to load data')
     args = parser.parse_args()
 
     DATA_LOC = args.data_input
