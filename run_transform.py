@@ -15,11 +15,13 @@ if __name__ == '__main__':
                                                  'previously batch downloaded '
                                                  'JSON files')
 
-    parser.add_argument('data_input',
+    parser.add_argument('--data_input',
                         type=str,
+                        default='data/',
                         help='path from which to load data')
-    parser.add_argument('data_output',
+    parser.add_argument('--data_output',
                         type=str,
+                        default='data/',
                         help='path in which to store data')
     parser.add_argument('-r',
                         '--raise-errors',

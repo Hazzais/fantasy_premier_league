@@ -12,8 +12,9 @@ if __name__ == '__main__':
                                                  'website endpoints and save'
                                                  'as JSON')
 
-    parser.add_argument('data_location',
+    parser.add_argument('--data_location',
                         type=str,
+                        default='data/',
                         help='path in which to store data')
     args = parser.parse_args()
 
