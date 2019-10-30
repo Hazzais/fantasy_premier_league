@@ -8,7 +8,7 @@ import numpy as np
 from fpltools.transform import (load_json, check_unique_index,
                                 check_not_null_index, pickle_data,
                                 pandas_integerstr_to_int)
-from fpltools.utils import get_datetime, AwsS3
+from fpltools.utils import AwsS3
 
 IN_FIXTURES = 'fixtures.json'
 IN_PLAYERS = 'players.json'
@@ -25,6 +25,8 @@ OUT_PLAYERS_FUTURE = 'players_future'
 OUT_PLAYERS_FULL = 'players_full'
 OUT_TEAM_RESULTS = 'team_results'
 OUT_LEAGUE_TABLE = 'league_table'
+
+LOG_FILE = 'logs/transform.log'
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Transformations of '
@@ -57,6 +59,11 @@ if __name__ == '__main__':
                         type=str,
                         default='etl_staging/transformed',
                         help='Folder within the S3 bucket to upload to')
+    parser.add_argument('-l',
+                        '--s3-log-output',
+                        type=str,
+                        default='etl_staging/logs',
+                        help='Folder within the S3 bucket to upload log to')
     args = parser.parse_args()
 
     DATA_LOC = args.data_input
@@ -64,7 +71,7 @@ if __name__ == '__main__':
     RAISE_ERRORS = args.raise_errors
 
     logging.basicConfig(level=logging.INFO,
-                        filename=f'logs/transform_{get_datetime()}.log',
+                        filename=LOG_FILE,
                         filemode='w',
                         format='%(levelname)s - %(asctime)s - %(message)s')
 
@@ -529,3 +536,9 @@ if __name__ == '__main__':
         s3.upload(dfiles, args.s3_bucket, args.s3_folder)
 
     logging.info('================Transform complete================')
+
+    if not args.skip_s3_upload:
+        lfiles = [LOG_FILE]
+        logging.info(f'Uploading {LOG_FILE} to S3')
+        s3_l = AwsS3()
+        s3_l.upload(lfiles, args.s3_bucket, args.s3_log_output)

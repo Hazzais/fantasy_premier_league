@@ -13,13 +13,25 @@ from fpltools.load import (QUERY_RECORD, QUERY_PLAYERS_FULL,
                            QUERY_PLAYERS_STATUSES, QUERY_PLAYERS_SUMMARY,
                            QUERY_POSITIONS, QUERY_TABLE, QUERY_TEAM_RESULTS,
                            QUERY_TEAMS)
-from fpltools.utils import get_datetime
+from fpltools.utils import AwsS3
 
+IN_FIXTURES = 'fixtures'
+IN_GAMEWEEKS = 'gameweeks'
+IN_TEAMS = 'teams'
+IN_POSITIONS = 'positions'
+IN_PLAYERS_SUM = 'players_summary'
+IN_PLAYERS_PREVIOUS_SEASONS = 'players_previous_seasons'
+IN_PLAYERS_PAST = 'players_past'
+IN_PLAYERS_FUTURE = 'players_future'
+IN_PLAYERS_FULL = 'players_full'
+IN_TEAM_RESULTS = 'team_results'
+IN_LEAGUE_TABLE = 'league_table'
+
+LOG_FILE = 'logs/load.log'
 
 # TODO: perform final transforms (mostly renaming) in transform part of code
 # TODO: Explicit begin() and rollback() for query execution (may require large
 #  rewriting of SQLLoad class
-
 def _get_latest_gameweek(dbengine, table_name='gameweeks'):
     with dbengine.connect() as con:
         res = con.execute(f"""SELECT
@@ -51,6 +63,20 @@ if __name__ == '__main__':
                         type=str,
                         default='data/',
                         help='path from which to load data')
+    parser.add_argument('-s',
+                        '--skip-s3-upload',
+                        action='store_true',
+                        help='Do not attempt any upload to AWS S3')
+    parser.add_argument('-b',
+                        '--s3-bucket',
+                        type=str,
+                        default='fpl-alldata',
+                        help='S3 bucket to upload to')
+    parser.add_argument('-l',
+                        '--s3-log-output',
+                        type=str,
+                        default='etl_staging/logs',
+                        help='Folder within the S3 bucket to upload log to')
     args = parser.parse_args()
 
     DATA_LOC = args.data_input
@@ -62,34 +88,34 @@ if __name__ == '__main__':
     DB_PSWD = keyring.get_password(DB_KEYRING_NAME, DB_USER)
 
     logging.basicConfig(level=logging.INFO,
-                        filename=f'logs/load_{get_datetime()}.log',
+                        filename=LOG_FILE,
                         filemode='w',
                         format='%(levelname)s - %(asctime)s - %(message)s')
 
     load_date = datetime.utcnow().isoformat().replace('T', ' ')
 
     # Dataframes to be loaded are originally pickled from run_transform.py
-    df_fixtures = load_pickle_data('transformed_fixtures.pkl',
+    df_fixtures = load_pickle_data(IN_FIXTURES + '.pkl',
                                    DATA_LOC)
-    df_gameweeks = load_pickle_data('transformed_gameweeks.pkl',
+    df_gameweeks = load_pickle_data(IN_GAMEWEEKS + '.pkl',
                                     DATA_LOC)
-    df_league_table = load_pickle_data('transformed_league_table.pkl',
+    df_league_table = load_pickle_data(IN_LEAGUE_TABLE + '.pkl',
                                        DATA_LOC)
-    df_players_future = load_pickle_data('transformed_players_future.pkl',
+    df_players_future = load_pickle_data(IN_PLAYERS_FUTURE + '.pkl',
                                          DATA_LOC)
-    df_players_past = load_pickle_data('transformed_players_past.pkl',
+    df_players_past = load_pickle_data(IN_PLAYERS_PAST + '.pkl',
                                        DATA_LOC)
-    df_players_full = load_pickle_data('transformed_players_full.pkl',
+    df_players_full = load_pickle_data(IN_PLAYERS_FULL + '.pkl',
                                        DATA_LOC)
-    df_players_previous_seasons =\
-        load_pickle_data('transformed_players_previous_seasons.pkl', DATA_LOC)
-    df_players_summary = load_pickle_data('transformed_players_summary.pkl',
+    df_players_previous_seasons = load_pickle_data(IN_PLAYERS_PREVIOUS_SEASONS + '.pkl',
+                                                   DATA_LOC)
+    df_players_summary = load_pickle_data(IN_PLAYERS_SUM + '.pkl',
                                           DATA_LOC)
-    df_positions = load_pickle_data('transformed_positions.pkl',
+    df_positions = load_pickle_data(IN_POSITIONS + '.pkl',
                                     DATA_LOC)
-    df_team_results = load_pickle_data('transformed_team_results.pkl',
+    df_team_results = load_pickle_data(IN_TEAM_RESULTS + '.pkl',
                                        DATA_LOC)
-    df_teams = load_pickle_data('transformed_teams.pkl',
+    df_teams = load_pickle_data(IN_TEAMS + '.pkl',
                                 DATA_LOC)
 
     engine = sqlalchemy.create_engine(
@@ -192,3 +218,11 @@ if __name__ == '__main__':
                             QUERY_RECORD,
                             'record')
     bu_record.batch_append()
+
+    logging.info('================Load complete================')
+
+    if not args.skip_s3_upload:
+        lfiles = [LOG_FILE]
+        logging.info(f'Uploading {LOG_FILE} to S3')
+        s3_l = AwsS3()
+        s3_l.upload(lfiles, args.s3_bucket, args.s3_log_output)

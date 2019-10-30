@@ -4,11 +4,12 @@ import argparse
 from fpltools.extract import (retrieve_data, retrieve_player_details,
                               save_intermediate_data)
 from fpltools.constants import API_URLS
-from fpltools.utils import get_datetime, AwsS3
+from fpltools.utils import AwsS3
 
 FILE_STRING_FIXTURES = 'fixtures'
 FILE_STRING_PLAYERS = 'players'
 FILE_STRING_MAIN = 'main'
+LOG_FILE = 'logs/extract.log'
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Batch download from FPL'
@@ -33,12 +34,17 @@ if __name__ == '__main__':
                         type=str,
                         default='etl_staging/raw',
                         help='Folder within the S3 bucket to upload to')
+    parser.add_argument('-l',
+                        '--s3-log-output',
+                        type=str,
+                        default='etl_staging/logs',
+                        help='Folder within the S3 bucket to upload log to')
     args = parser.parse_args()
 
     DATA_LOC = args.data_location
 
     logging.basicConfig(level=logging.INFO,
-                        filename=f'logs/extract_{get_datetime()}.log',
+                        filename=LOG_FILE,
                         filemode='w',
                         format='%(levelname)s - %(asctime)s - %(message)s')
 
@@ -61,3 +67,9 @@ if __name__ == '__main__':
         s3.upload(dfiles, args.s3_bucket, args.s3_folder)
 
     logging.info('================Extract complete================')
+
+    if not args.skip_s3_upload:
+        lfiles = [LOG_FILE]
+        logging.info(f'Uploading {LOG_FILE} to S3')
+        s3_l = AwsS3()
+        s3_l.upload(lfiles, args.s3_bucket, args.s3_log_output)
