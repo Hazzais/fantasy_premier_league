@@ -24,14 +24,14 @@ if __name__ == '__main__':
                         action='store_true',
                         help='Do not attempt any upload to AWS S3')
     parser.add_argument('-b',
-                        '--s3_bucket',
+                        '--s3-bucket',
                         type=str,
                         default='fpl-alldata',
                         help='S3 bucket to upload to')
     parser.add_argument('-f',
                         '--s3-folder',
                         type=str,
-                        default='etl_staging',
+                        default='etl_staging/raw',
                         help='Folder within the S3 bucket to upload to')
     args = parser.parse_args()
 
@@ -57,7 +57,7 @@ if __name__ == '__main__':
                   f'{DATA_LOC}/{FILE_STRING_MAIN}.json',
                   f'{DATA_LOC}/{FILE_STRING_PLAYERS}.json']
 
-        ec2 = AwsS3()
-        ec2.upload(dfiles, args.s3_bucket, args.s3_bucket)
+        s3 = AwsS3()
+        s3.upload(dfiles, args.s3_bucket, args.s3_folder)
 
     logging.info('================Extract complete================')
