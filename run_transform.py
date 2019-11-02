@@ -8,7 +8,25 @@ import numpy as np
 from fpltools.transform import (load_json, check_unique_index,
                                 check_not_null_index, pickle_data,
                                 pandas_integerstr_to_int)
-from fpltools.utils import get_datetime
+from fpltools.utils import AwsS3
+
+IN_FIXTURES = 'fixtures.json'
+IN_PLAYERS = 'players.json'
+IN_MAIN = 'main.json'
+
+OUT_FIXTURES = 'fixtures'
+OUT_GAMEWEEKS = 'gameweeks'
+OUT_TEAMS = 'teams'
+OUT_POSITIONS = 'positions'
+OUT_PLAYERS_SUM = 'players_summary'
+OUT_PLAYERS_PREVIOUS_SEASONS = 'players_previous_seasons'
+OUT_PLAYERS_PAST = 'players_past'
+OUT_PLAYERS_FUTURE = 'players_future'
+OUT_PLAYERS_FULL = 'players_full'
+OUT_TEAM_RESULTS = 'team_results'
+OUT_LEAGUE_TABLE = 'league_table'
+
+LOG_FILE = 'logs/transform.log'
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Transformations of '
@@ -27,6 +45,25 @@ if __name__ == '__main__':
                         '--raise-errors',
                         action='store_false',
                         help='stop on data validation exception')
+    parser.add_argument('-s',
+                        '--skip-s3-upload',
+                        action='store_true',
+                        help='Do not attempt any upload to AWS S3')
+    parser.add_argument('-b',
+                        '--s3-bucket',
+                        type=str,
+                        default='fpl-alldata',
+                        help='S3 bucket to upload to')
+    parser.add_argument('-f',
+                        '--s3-folder',
+                        type=str,
+                        default='etl_staging/transformed',
+                        help='Folder within the S3 bucket to upload to')
+    parser.add_argument('-l',
+                        '--s3-log-output',
+                        type=str,
+                        default='etl_staging/logs',
+                        help='Folder within the S3 bucket to upload log to')
     args = parser.parse_args()
 
     DATA_LOC = args.data_input
@@ -34,13 +71,13 @@ if __name__ == '__main__':
     RAISE_ERRORS = args.raise_errors
 
     logging.basicConfig(level=logging.INFO,
-                        filename=f'logs/transform_{get_datetime()}.log',
+                        filename=LOG_FILE,
                         filemode='w',
                         format='%(levelname)s - %(asctime)s - %(message)s')
 
-    fixtures_data = load_json('fixtures.json', DATA_LOC)
-    player_data = load_json('players.json', DATA_LOC)
-    main_data = load_json('main.json', DATA_LOC)
+    fixtures_data = load_json(IN_FIXTURES, DATA_LOC)
+    player_data = load_json(IN_PLAYERS, DATA_LOC)
+    main_data = load_json(IN_MAIN, DATA_LOC)
 
     # Data: fixtures
     logging.info('Beginning transform of fixtures data')
@@ -87,7 +124,6 @@ if __name__ == '__main__':
         warnings.warn(warn_msg)
     else:
         missing_gameweeks = False
-    logging.warning(warn_msg)
 
     logging.info('Completed transform of fixtures data')
 
@@ -466,21 +502,43 @@ if __name__ == '__main__':
     check_not_null_index(df_team_results, 'team_results',
                          raise_errors=RAISE_ERRORS)
 
+
     # Pickle dataframes so as to retain column information (types etc.) and
     # indexes
     logging.info('Pickling final dataframes')
-    pickle_data(df_fixtures, 'transformed_fixtures', DATA_LOC_OUT)
-    pickle_data(df_gameweeks, 'transformed_gameweeks', DATA_LOC_OUT)
-    pickle_data(df_teams, 'transformed_teams', DATA_LOC_OUT)
-    pickle_data(df_positions, 'transformed_positions', DATA_LOC_OUT)
-    pickle_data(df_players_sum, 'transformed_players_summary', DATA_LOC_OUT)
-    pickle_data(df_players_prev_seasons,
-                'transformed_players_previous_seasons',
-                DATA_LOC_OUT)
-    pickle_data(df_players_past, 'transformed_players_past', DATA_LOC_OUT)
-    pickle_data(df_players_future, 'transformed_players_future', DATA_LOC_OUT)
-    pickle_data(df_players_full, 'transformed_players_full', DATA_LOC_OUT)
-    pickle_data(df_team_results, 'transformed_team_results', DATA_LOC_OUT)
-    pickle_data(df_table, 'transformed_league_table', DATA_LOC_OUT)
+    pickle_data(df_fixtures, OUT_FIXTURES, DATA_LOC_OUT)
+    pickle_data(df_gameweeks, OUT_GAMEWEEKS, DATA_LOC_OUT)
+    pickle_data(df_teams, OUT_TEAMS, DATA_LOC_OUT)
+    pickle_data(df_positions, OUT_POSITIONS, DATA_LOC_OUT)
+    pickle_data(df_players_sum, OUT_PLAYERS_SUM, DATA_LOC_OUT)
+    pickle_data(df_players_prev_seasons, OUT_PLAYERS_PREVIOUS_SEASONS, DATA_LOC_OUT)
+    pickle_data(df_players_past, OUT_PLAYERS_PAST, DATA_LOC_OUT)
+    pickle_data(df_players_future, OUT_PLAYERS_FUTURE, DATA_LOC_OUT)
+    pickle_data(df_players_full, OUT_PLAYERS_FULL, DATA_LOC_OUT)
+    pickle_data(df_team_results, OUT_TEAM_RESULTS, DATA_LOC_OUT)
+    pickle_data(df_table, OUT_LEAGUE_TABLE, DATA_LOC_OUT)
+
+    if not args.skip_s3_upload:
+        dfiles = [f'{DATA_LOC_OUT}/{OUT_FIXTURES}.pkl',
+                  f'{DATA_LOC_OUT}/{OUT_GAMEWEEKS}.pkl',
+                  f'{DATA_LOC_OUT}/{OUT_TEAMS}.pkl',
+                  f'{DATA_LOC_OUT}/{OUT_POSITIONS}.pkl',
+                  f'{DATA_LOC_OUT}/{OUT_PLAYERS_SUM}.pkl',
+                  f'{DATA_LOC_OUT}/{OUT_PLAYERS_PREVIOUS_SEASONS}.pkl',
+                  f'{DATA_LOC_OUT}/{OUT_PLAYERS_PAST}.pkl',
+                  f'{DATA_LOC_OUT}/{OUT_PLAYERS_FUTURE}.pkl',
+                  f'{DATA_LOC_OUT}/{OUT_PLAYERS_FULL}.pkl',
+                  f'{DATA_LOC_OUT}/{OUT_TEAM_RESULTS}.pkl',
+                  f'{DATA_LOC_OUT}/{OUT_LEAGUE_TABLE}.pkl'
+                  ]
+
+        s3 = AwsS3()
+        s3.upload(dfiles, args.s3_bucket, args.s3_folder)
 
     logging.info('================Transform complete================')
+
+    if not args.skip_s3_upload:
+        lfiles = [LOG_FILE]
+        logging.info(f'Uploading {LOG_FILE} to S3')
+        s3_l = AwsS3()
+        s3_l.upload(lfiles, args.s3_bucket, args.s3_log_output)
