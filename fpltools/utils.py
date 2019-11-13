@@ -1,5 +1,6 @@
 import os
 import logging
+import json
 from datetime import datetime
 
 import boto3
@@ -18,6 +19,7 @@ def get_datetime_string_f(ftime="%Y%m%d-%H%M%S"):
     return datetime.now().strftime(ftime)
 
 
+# TODO: Refactor this and below class
 class AwsS3:
     """Upload one or more files to a given S3 bucket"""
 
@@ -81,3 +83,33 @@ class AwsS3:
             filepath, filename = os.path.split(fl)
             out_object = self._generate_out_name(filename, bucket_folder, datetime_string=self.__datetime_upload)
             _ = self._upload_file(fl, bucket, out_object)
+
+
+class AwsS3Download:
+
+    def __init__(self):
+        self.__s3 = boto3.client('s3')
+
+    def get_bucket_contents(self, bucket):
+        return self.__s3.list_objects(Bucket=bucket)['Contents']
+
+    def get_latest(self, bucket, prefix, name_key='Key',
+                   sort_col='LastModified'):
+        contents = self.get_bucket_contents(bucket)
+        contents_with_prefix = [x for x in contents
+                                if x[name_key].startswith(prefix)]
+        contents_sorted = sorted(contents_with_prefix,
+                                 key=lambda k: k[sort_col],
+                                 reverse=True)
+        try:
+            latest_file = contents_sorted[0][name_key]
+            return latest_file
+        except IndexError as e:
+            raise ValueError(f"Cannot find objects beginning with {prefix}")
+
+    def retrieve_latest(self, bucket, prefix):
+        item = self.get_latest(bucket, prefix)
+        object_contents = self.__s3.get_object(Bucket=bucket,
+                                             Key=item)
+        item_contents = object_contents['Body'].read().decode('utf-8')
+        return json.loads(item_contents)
