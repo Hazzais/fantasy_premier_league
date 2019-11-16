@@ -1,15 +1,29 @@
+"""
+Deploy a lambda function deployment package to S3 and update lambda code and
+configuration for one or more functions.
+
+Usage:
+    - Assumes fpltools is in the interpreter scope and/or the code's working
+      directory is that of the repo root. For example, pip install the root
+      directory (editable or not) and you will be able to access fpltools.
+    - LAMBDA_FUNCTIONS defines what and how to deploy the lambda functions
+
+Potential/probable improvements:
+# TODO: Further logging (particularly within class)
+# TODO: testing (unit tests etc.)
+# TODO: move class outside of file?
+# TODO: move lambda dictionary to config file
+"""
+
 import os
 import shutil
 import logging
 
 import boto3
 
+
 from fpltools.utils import AwsS3
 
-# TODO: logging
-# TODO: testing (me)
-# TODO: testing (unit tests etc.)
-# TODO: move class outside of file?
 
 LAMBDA_FUNCTIONS = {'Extract':
                         {'function_module':'aws_lambda/aws_lambda_extract.py',
