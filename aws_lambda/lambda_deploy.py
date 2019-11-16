@@ -4,8 +4,9 @@ configuration for one or more functions.
 
 Usage:
     - Assumes fpltools is in the interpreter scope and/or the code's working
-      directory is that of the repo root
-    - LAMBDA_FUNCTIONS defines what and how to deploy the lambda functions.
+      directory is that of the repo root. For example, pip install the root
+      directory (editable or not) and you will be able to access fpltools.
+    - LAMBDA_FUNCTIONS defines what and how to deploy the lambda functions
 
 Potential/probable improvements:
 # TODO: Further logging (particularly within class)
@@ -19,6 +20,7 @@ import shutil
 import logging
 
 import boto3
+
 
 from fpltools.utils import AwsS3
 
