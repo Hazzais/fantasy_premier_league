@@ -27,8 +27,6 @@ IN_PLAYERS_FULL = 'players_full'
 IN_TEAM_RESULTS = 'team_results'
 IN_LEAGUE_TABLE = 'league_table'
 
-LOG_FILE = 'logs/load.log'
-
 # TODO: perform final transforms (mostly renaming) in transform part of code
 # TODO: Explicit begin() and rollback() for query execution (may require large
 #  rewriting of SQLLoad class
@@ -77,6 +75,10 @@ if __name__ == '__main__':
                         type=str,
                         default='etl_staging/logs',
                         help='Folder within the S3 bucket to upload log to')
+    parser.add_argument('--log-file',
+                        type=str,
+                        default='logs/extract.log',
+                        help='Location to save logs locally')
     args = parser.parse_args()
 
     DATA_LOC = args.data_input
@@ -88,7 +90,7 @@ if __name__ == '__main__':
     DB_PSWD = keyring.get_password(DB_KEYRING_NAME, DB_USER)
 
     logging.basicConfig(level=logging.INFO,
-                        filename=LOG_FILE,
+                        filename=args.log_file,
                         filemode='w',
                         format='%(levelname)s - %(asctime)s - %(message)s')
 
@@ -222,7 +224,7 @@ if __name__ == '__main__':
     logging.info('================Load complete================')
 
     if not args.skip_s3_upload:
-        lfiles = [LOG_FILE]
-        logging.info(f'Uploading {LOG_FILE} to S3')
+        lfiles = [args.log_file]
+        logging.info(f'Uploading {args.log_file} to S3')
         s3_l = AwsS3()
         s3_l.upload(lfiles, args.s3_bucket, args.s3_log_output)

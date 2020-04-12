@@ -9,7 +9,6 @@ from fpltools.utils import AwsS3
 FILE_STRING_FIXTURES = 'fixtures'
 FILE_STRING_PLAYERS = 'players'
 FILE_STRING_MAIN = 'main'
-LOG_FILE = 'logs/extract.log'
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Batch download from FPL'
@@ -39,12 +38,16 @@ if __name__ == '__main__':
                         type=str,
                         default='etl_staging/logs',
                         help='Folder within the S3 bucket to upload log to')
+    parser.add_argument('--log-file',
+                        type=str,
+                        default='logs/extract.log',
+                        help='Location to save logs locally')
     args = parser.parse_args()
 
     DATA_LOC = args.data_location
 
     logging.basicConfig(level=logging.INFO,
-                        filename=LOG_FILE,
+                        filename=args.log_file,
                         filemode='w',
                         format='%(levelname)s - %(asctime)s - %(message)s')
 

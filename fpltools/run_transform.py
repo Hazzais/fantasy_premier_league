@@ -26,7 +26,6 @@ OUT_PLAYERS_FULL = 'players_full'
 OUT_TEAM_RESULTS = 'team_results'
 OUT_LEAGUE_TABLE = 'league_table'
 
-LOG_FILE = 'logs/transform.log'
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Transformations of '
@@ -64,6 +63,10 @@ if __name__ == '__main__':
                         type=str,
                         default='etl_staging/logs',
                         help='Folder within the S3 bucket to upload log to')
+    parser.add_argument('--log-file',
+                        type=str,
+                        default='logs/extract.log',
+                        help='Location to save logs locally')
     args = parser.parse_args()
 
     DATA_LOC = args.data_input
@@ -71,7 +74,7 @@ if __name__ == '__main__':
     RAISE_ERRORS = args.raise_errors
 
     logging.basicConfig(level=logging.INFO,
-                        filename=LOG_FILE,
+                        filename=args.log_file,
                         filemode='w',
                         format='%(levelname)s - %(asctime)s - %(message)s')
 
@@ -538,7 +541,7 @@ if __name__ == '__main__':
     logging.info('================Transform complete================')
 
     if not args.skip_s3_upload:
-        lfiles = [LOG_FILE]
-        logging.info(f'Uploading {LOG_FILE} to S3')
+        lfiles = [args.log_file]
+        logging.info(f'Uploading {args.log_file} to S3')
         s3_l = AwsS3()
         s3_l.upload(lfiles, args.s3_bucket, args.s3_log_output)
