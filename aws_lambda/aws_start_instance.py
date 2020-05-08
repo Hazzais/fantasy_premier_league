@@ -1,9 +1,13 @@
+import os
+
 import boto3
 import paramiko
 
 
-INSTANCE_ID = 'i-0ed884846e3bb1ca6'
-PEM_LOC = '~/.aws/aws-key-pairs/first-fpl-ec2-key-pair.pem'
+# Assign using environment variables for now - TODO: want to think about what I'm doing with this
+# as lambda won't have pem file by default
+INSTANCE_ID = os.environ.get('EC2_ID')
+PEM_LOC = os.environ.get('PATH_TO_EC2_PEM')
 
 ec2 = boto3.client('ec2')
 
