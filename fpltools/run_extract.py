@@ -72,7 +72,7 @@ if __name__ == '__main__':
     logging.info('================Extract complete================')
 
     if not args.skip_s3_upload:
-        lfiles = [LOG_FILE]
-        logging.info(f'Uploading {LOG_FILE} to S3')
+        lfiles = [args.log_file]
+        logging.info(f'Uploading {args.log_file} to S3')
         s3_l = AwsS3()
         s3_l.upload(lfiles, args.s3_bucket, args.s3_log_output)

@@ -1,5 +1,6 @@
 # IDE files
 .idea/
+.vscode/
 
 # Compiled
 /__pycache__/
@@ -19,3 +20,13 @@ aws_lambda/deploy_builds
 
 # Setuptools directories
 *.egg-info
+
+# Temporary files
+tmp*.py
+temp*.py
+*/tmp*.py
+*/temp*.py
+
+# Misc
+nohup.out
+*/nohup.out
