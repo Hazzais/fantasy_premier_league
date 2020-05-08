@@ -1,4 +1,4 @@
-name: flask_api
+name: fpl_api
 channels:
   - defaults
 dependencies:
