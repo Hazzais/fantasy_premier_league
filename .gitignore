@@ -11,9 +11,11 @@ docs/
 
 # Log files (will likely move out of repo in the future)
 logs/
+etl/logs/
 
 # Data - mostly used for local development
 data/
+etl/data/
 
 # Lambda build directory
 aws_lambda/deploy_builds
