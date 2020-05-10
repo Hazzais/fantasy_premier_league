@@ -5,6 +5,7 @@
 # Compiled
 /__pycache__/
 */__pycache__/
+*/*/__pycache__/
 
 # Documents (may remove from ignore later)
 docs/
