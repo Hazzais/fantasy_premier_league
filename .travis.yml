@@ -21,9 +21,24 @@ install:
   # Useful for debugging any issues with conda
   - conda info -a
 
-  # Replace dep1 dep2 ... with your dependencies
-  - conda create -q -n test-environment python=3.6 --file requirements_ubuntu-18-04.txt
-  - conda activate test-environment
-  #- python setup.py install
+  # Ensure fpltools is visible
+  - export PYTHONPATH="$PYTHONPATH":`pwd`
 
-script: pytest
+  # Each subdirectory is separate service (etc.) and each has separate environment - create here
+  # - conda env create -q --name test-tools --file=fpltools/environment.yml
+  - conda env create -q --name test-etl --file=etl/environment.yml
+  # - conda env create -q --name test-api --file=api/environment.yml
+  # - conda env create -q --name test-modelling --file=modelling/environment.yml 
+  # - conda env create -q --name test-awslambda --file=aws_lambda/environment.yml
+
+script:
+  # - conda activate test-tools
+  # - python -m pytest fpltools/tests*
+  - conda activate test-etl
+  - python -m pytest etl/tests* 
+  # - conda activate test-api
+  # - python -m pytest api/tests*
+  # - conda activate test-modelling
+  # - python -m pytest modelling/tests*
+  # - conda activate test-awslambda
+  # - python -m pytest aws_lambda/tests*
