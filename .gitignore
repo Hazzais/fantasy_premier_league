@@ -5,15 +5,18 @@
 # Compiled
 /__pycache__/
 */__pycache__/
+*/*/__pycache__/
 
 # Documents (may remove from ignore later)
 docs/
 
 # Log files (will likely move out of repo in the future)
 logs/
+etl/logs/
 
 # Data - mostly used for local development
 data/
+etl/data/
 
 # Lambda build directory
 aws_lambda/deploy_builds
@@ -26,6 +29,7 @@ tmp*.py
 temp*.py
 */tmp*.py
 */temp*.py
+tmp/
 
 # Misc
 nohup.out

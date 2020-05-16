@@ -5,9 +5,9 @@ import warnings
 import pandas as pd
 import numpy as np
 
-from fpltools.transform import (load_json, check_unique_index,
-                                check_not_null_index, pickle_data,
-                                pandas_integerstr_to_int)
+from transform import (load_json, check_unique_index,
+                       check_not_null_index, pickle_data,
+                       pandas_integerstr_to_int)
 from fpltools.utils import AwsS3
 
 IN_FIXTURES = 'fixtures.json'

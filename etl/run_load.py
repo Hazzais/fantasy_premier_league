@@ -5,14 +5,14 @@ from datetime import datetime
 
 import sqlalchemy
 
-from fpltools.load import (load_pickle_data, BatchSQLUpdate, RecordTable)
-from fpltools.load import (QUERY_RECORD, QUERY_PLAYERS_FULL,
-                           QUERY_PLAYERS_PAST, QUERY_FIXTURES,
-                           QUERY_GAMEWEEKS, QUERY_PLAYERS_FUTURE,
-                           QUERY_PLAYERS_PREVIOUS_SEASONS,
-                           QUERY_PLAYERS_STATUSES, QUERY_PLAYERS_SUMMARY,
-                           QUERY_POSITIONS, QUERY_TABLE, QUERY_TEAM_RESULTS,
-                           QUERY_TEAMS)
+from load import (load_pickle_data, BatchSQLUpdate, RecordTable)
+from load import (QUERY_RECORD, QUERY_PLAYERS_FULL,
+                  QUERY_PLAYERS_PAST, QUERY_FIXTURES,
+                  QUERY_GAMEWEEKS, QUERY_PLAYERS_FUTURE,
+                  QUERY_PLAYERS_PREVIOUS_SEASONS,
+                  QUERY_PLAYERS_STATUSES, QUERY_PLAYERS_SUMMARY,
+                  QUERY_POSITIONS, QUERY_TABLE, QUERY_TEAM_RESULTS,
+                  QUERY_TEAMS)
 from fpltools.utils import AwsS3
 
 IN_FIXTURES = 'fixtures'
@@ -26,6 +26,7 @@ IN_PLAYERS_FUTURE = 'players_future'
 IN_PLAYERS_FULL = 'players_full'
 IN_TEAM_RESULTS = 'team_results'
 IN_LEAGUE_TABLE = 'league_table'
+
 
 # TODO: perform final transforms (mostly renaming) in transform part of code
 # TODO: Explicit begin() and rollback() for query execution (may require large
