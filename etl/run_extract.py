@@ -1,7 +1,7 @@
 import logging
 import argparse
 
-from fpltools.extract import (retrieve_data, retrieve_player_details,
+from extract import (retrieve_data, retrieve_player_details,
                               save_intermediate_data)
 from fpltools.constants import API_URLS
 from fpltools.utils import AwsS3

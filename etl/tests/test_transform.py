@@ -8,9 +8,9 @@ import pandas.testing as pdt
 import numpy as np
 
 from etl.transform import (dval_unique_index, dval_notnull_index,
-                                check_unique_index, check_not_null_index,
-                                pandas_integerstr_to_int, load_json,
-                                pickle_data)
+                           check_unique_index, check_not_null_index,
+                           pandas_integerstr_to_int, load_json,
+                           pickle_data)
 
 
 def test_dval_unique_correct_index():
