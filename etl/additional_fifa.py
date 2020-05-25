@@ -1,12 +1,13 @@
 from configparser import ConfigParser, NoSectionError
 
 from sqlalchemy import create_engine
+from sqlalchemy.exc import ProgrammingError
 import keyring
 import pandas as pd
 import numpy as np
 from rapidfuzz import fuzz
 
-from etl.load import SQLLoad
+from etl.load import BatchSQLUpdate
 
 
 def get_config_section(section, path='config.ini'):
@@ -108,7 +109,7 @@ class MatchData:
         # there is an immediate close match for a player, we don't have to try
         # matching on short name (long name tends to be better for matching).
         data['match_long'] = data \
-                        .apply(lambda x: wrap_func(x['fpl_player_name'],
+                        .apply(lambda x: self.wrap_func(x['fpl_player_name'],
                                                    x['fifa_name_long'],
                                                    exact=x['exact_match_long'],
                                                    func=self._match_func),
@@ -121,7 +122,7 @@ class MatchData:
 
         # Match on short name, skipping successful long name matched players
         data['match_short'] = data\
-            .apply(lambda x: wrap_func(x['fpl_player_name'],
+            .apply(lambda x: self.wrap_func(x['fpl_player_name'],
                                        x['fifa_name_short'],
                                        exact=x['exact_match_short'],
                                        skip=x['complete'],
@@ -133,10 +134,9 @@ class MatchData:
 
         # For those matches lower than our threshold, replace matches with NaN
         data.loc[data.match_best <= self._match_threshold,
-                        ['fifa_name_short', 'fifa_name_long', 'club',
-                        'player_positions', 'team_name_long_fifa',
+                        ['fifa_name_short', 'fifa_name_long', 'team_name_long_fifa',
                         'exact_match_short', 'exact_match_long', 'match_short',
-                        'match_long', 'match_best']] = np.nan
+                        'match_long', 'match_best', 'sofifa_id']] = np.nan
 
         # Return best match per player
         best_matches = data.sort_values(['player_id', 'match_best'],
@@ -221,7 +221,11 @@ db_url = f"postgresql://"\
     f"{db_config['user']}:{db_config['password']}@"\
     f"{db_config['host']}:{db_config['port']}/"\
     f"{db_config['db']}"
+
 engine = create_engine(db_url)
+
+task_config = get_config_section('fpl_fifa_mapping')
+max_batch_size = int(task_config.get('batch_max', 10000))
 
 player_names = pd.read_sql(
     f"""SELECT player_id, position_id, team_id,
@@ -254,30 +258,108 @@ fpl_data.drop(columns=['position_id', 'team_id'], inplace=True)
 
 fpl_data.drop_duplicates(inplace=True)
 
-fdata = BuildFifaData().load_fifa_data(data_fifa)
+fifa_data = BuildFifaData().load_fifa_data(data_fifa)
+
+
+def join_fpl_fifa(fpl, fifa):
+    fpl['join_key'] = 1
+    fifa['join_key'] = 1
+    return fpl.merge(fifa,
+                     how='outer',
+                     on='join_key')
+
+
+def get_existing_player_ids(engine, table_other, table_fpl='players_summary'):
+    with engine.connect() as conn:
+        results = conn.execute(f"""SELECT DISTINCT player_id
+                          FROM {table_fpl}
+                          INTERSECT
+                          SELECT DISTINCT player_id
+                          FROM {table_other}""").fetchall()
+    return [r for r, in results]
+
+try:
+    previous_match = get_existing_player_ids(engine, 'fpl_fifa_lookup')
+except ProgrammingError:
+    # TODO: make more specific - other, unrelated errors could raise this exception
+    previous_match = []
 
 
 ###############################################################################
 #subset_data = fpl_data.loc[fpl_data.team_name_long == 'Man Utd'].copy()
-subset_data = fpl_data.copy()
+subset_data = fpl_data.loc[~fpl_data['player_id'].isin(previous_match)].copy()
 
 subset_data['join_key'] = 1
-small_fifa_merge = small_fifa.copy()
-small_fifa_merge['join_key'] = 1
-subset_data2 = subset_data.merge(small_fifa_merge,
+fifa_data['join_key'] = 1
+subset_data2 = subset_data.merge(fifa_data,
                                 how='outer',
                                 on='join_key')
 
-use_data = subset_data2.loc[subset_data2.team_name_long == 'Man Utd'].copy()
+n_left = subset_data['player_id'].nunique()
+n_right = fifa_data['sofifa_id'].nunique()
 
+batches_needed = int(np.ceil(n_right * n_left/max_batch_size))
+
+batches_left = np.array_split(subset_data, batches_needed)
+
+all_batch_matches = []
 match_class = MatchData()
-matched_data = match_class.execute(use_data)
+for batch_id in range(batches_needed):
+    print(f'Batch: {batch_id + 1} of {batches_needed}')
+    use_data = batches_left[batch_id].merge(fifa_data,
+                                            how='outer',
+                                            on='join_key')
+    all_batch_matches.append(match_class.execute(use_data))
+
+# all_batch_matches = []
+# match_class = MatchData()
+# for batch_id, batch in enumerate(range(batches_needed)):
+#     print(f'Batch: {batch_id + 1} of {batches_needed}')
+#     batch_min = batch_id * max_batch_size
+#     batch_max = ((batch_id + 1) * max_batch_size)
+#     print(f'{batch_min} - {batch_max}')
+#     use_data = subset_data.iloc[batch_min:batch_max].merge(fifa_data,
+#                                                            how='outer',
+#                                                            on='join_key')
+#     all_batch_matches.append(match_class.execute(use_data))
+
+matched_data = pd.concat(all_batch_matches)
+matched_data['sofifa_id'] = matched_data['sofifa_id'].astype(str).replace(r'\.0', '', regex=True)
 
 
+dups = matched_data.loc[matched_data.player_id.duplicated(keep=False)]
+
+print(matched_data.player_id.duplicated().count())
+# use_data = subset_data2.loc[subset_data2.team_name_long == 'Man Utd'].copy()
+
+# match_class = MatchData()
+# matched_data = match_class.execute(use_data)
+
+MATCH_LOOKUP_DEF = """CREATE TABLE {} (
+    player_id VARCHAR(3) NOT NULL UNIQUE REFERENCES players_summary(player_id),
+    sofifa_id VARCHAR(20),
+    match_best INT,
+    fpl_player_name VARCHAR(550),
+    fifa_name_short VARCHAR(550),
+    fifa_name_long VARCHAR(550)
+    )
+    """
+
+bsu = BatchSQLUpdate(matched_data, engine, MATCH_LOOKUP_DEF, 'fpl_fifa_lookup')
+bsu.batch_append()
+
+
+def clear_table(engine, table):
+    with engine.connect() as conn:
+        conn.execute(f"""DROP TABLE {table}""")
+
+
+# if fpl_fifa_lkp table not exists then create
+# get players not in lookup
+# perform matching on new players
 
 def main():
     pass
 
 if __name__ == "__main__":
-    pass
-
+    main()
