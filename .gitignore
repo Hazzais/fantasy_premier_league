@@ -34,3 +34,6 @@ tmp/
 # Misc
 nohup.out
 */nohup.out
+
+# Notebook checkpoints
+*/.ipynb_checkpoints/*
