@@ -12,7 +12,7 @@ class Datetime:
         self.timestamp = self._now.timestamp()
 
     def get_datetime(self):
-        return round(self._now)
+        return self._now
 
     def get_datetime_string(self):
         return str(self.get_datetime())

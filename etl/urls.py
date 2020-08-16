@@ -9,4 +9,4 @@ def player_url(player_id: int):
 
     player_id: id FPL uses for the player
     """
-    return f'{url_root}element-summary/{player_id}/'
+    return f'{url_root}/element-summary/{player_id}/'

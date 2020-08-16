@@ -18,15 +18,14 @@ def retrieve_data_list(ids, func, verbose=False):
     verbose: optional int or False. If not False, will log every n requests,
     where n is the value of verbose.
     """
-    players_full = {}
-    for i, pl in enumerate(ids):
+    data_full = {}
+    for i, this_id in enumerate(ids):
         if verbose and i % verbose == 0:
-            logging.info(f"Player number: {str(i)} of {str(len(ids))}")
+            logging.info(f"Retrieving element number: {str(i)} of {str(len(ids))}")
 
-        this_id = pl['id']
-        players_full[this_id] = retrieve_data(func(this_id))
+        data_full[this_id] = retrieve_data(func(this_id))
 
-    return players_full
+    return data_full
 
 
 def retrieve_data(link):
@@ -54,25 +53,25 @@ def extract(bucket, key_root):
     fixtures_data = retrieve_data(urls.fixtures)
 
     # Detailed player data must be retrieved by making a request per player
-    player_ids = main_data['elements']
-    player_data = retrieve_data_list(player_ids, urls.player_url, verbose=True)
+    player_ids = [v['id'] for v in main_data['elements']]
+    player_data = retrieve_data_list(player_ids, urls.player_url, verbose=50)
 
     # Want outputs idompotent - label keys with current datetime
-    datetime = utils.Datetime()
-    datetime_string = datetime.get_datetime_string()
+    this_datetime = utils.Datetime()
+    datetime_string = this_datetime.get_datetime_string_f()
 
     # Outputs are stored on S3
-    main_key = f'{key_root}main_{datetime_string}.json'
+    main_key = f'{key_root}main/main_{datetime_string}.json'
     utils.write_s3_json(main_data,
                         bucket=bucket,
                         key=main_key)
 
-    fixture_key = f'{key_root}fixtures_{datetime_string}.json'
+    fixture_key = f'{key_root}fixtures/fixtures_{datetime_string}.json'
     utils.write_s3_json(fixtures_data,
                         bucket=bucket,
                         key=fixture_key)
 
-    player_key = f'{key_root}players_{datetime_string}.json'
+    player_key = f'{key_root}players/players_{datetime_string}.json'
     utils.write_s3_json(player_data,
                         bucket=bucket,
                         key=player_key)
