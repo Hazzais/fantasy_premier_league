@@ -6,6 +6,7 @@ import extract
 
 s3_bucket = os.environ.get('AWS_S3_BUCKET')
 s3_key_root = os.environ.get('AWS_S3_BUCKET_KEY_ROOT')
+# e.g. etl_staging/raw/season-202021/
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)

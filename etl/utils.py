@@ -26,3 +26,9 @@ def write_s3_json(json_obj, bucket, key):
     return s3.put_object(Body=str(json.dumps(json_obj)),
                          Bucket=bucket,
                          Key=key)
+
+def upload_s3_file(file, bucket, key):
+    s3 = boto3.client('s3')
+    with open(file, "rb") as f:
+        s3.upload_fileobj(f, Bucket=bucket, Key=key)
+

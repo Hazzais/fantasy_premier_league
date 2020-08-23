@@ -47,6 +47,9 @@ def retrieve_data(link):
 
 def extract(bucket, key_root):
     """Extracts key FPL data and saves as JSON to S3
+
+    bucket: S3 bucket to store on
+    key_root: root 'directory' on S3 of where to store extracted JSONs
     """
     # Main and fixture data can be extracted with one request each
     main_data = retrieve_data(urls.main)
