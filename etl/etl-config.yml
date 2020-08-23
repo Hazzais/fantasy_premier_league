@@ -1,0 +1,9 @@
+season: 202021
+s3_bucket: fpl-alldata
+raw_data_key_root: etl_staging/raw/
+
+
+lambda:
+  functions:
+    Extract:
+        name: extract-Fpl

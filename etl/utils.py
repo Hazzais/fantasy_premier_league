@@ -1,8 +1,14 @@
 import io
 import json
+import yaml
 from datetime import datetime
 
 import boto3
+
+
+def get_config(path):
+    with open(path, 'r') as f:
+        return yaml.safe_load(f)
 
 
 class Datetime:
