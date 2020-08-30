@@ -218,6 +218,10 @@ def get_fixtures(fixture_data):
                        'team_a_difficulty': 'away_team_fixture_difficulty'
                        }
     fixtures_df.rename(columns=fixtures_rename, inplace=True)
+
+    cat_cols = ['fixture_id_long', 'fixture_id', 'gameweek_id', 'away_team_id',
+                'home_team_id']
+    fixtures_df[cat_cols] = fixtures_df[cat_cols].astype('category')
     fixtures_df.set_index('fixture_id', inplace=True)
     fixtures_df.sort_index(inplace=True)
     return fixtures_df
