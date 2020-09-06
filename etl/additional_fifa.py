@@ -9,7 +9,7 @@ import pandas as pd
 import numpy as np
 from rapidfuzz import fuzz
 
-from etl.load import BatchSQLUpdate
+from load import BatchSQLUpdate
 
 
 MATCH_LOOKUP_DEF = """CREATE TABLE {} (

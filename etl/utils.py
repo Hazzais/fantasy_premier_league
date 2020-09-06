@@ -1,6 +1,7 @@
 import io
 import json
 import yaml
+import pickle
 from datetime import datetime
 
 import boto3
@@ -38,3 +39,9 @@ def upload_s3_file(file, bucket, key):
     with open(file, "rb") as f:
         s3.upload_fileobj(f, Bucket=bucket, Key=key)
 
+
+def load_s3_pickle(bucket, key):
+    s3 = boto3.client('s3')
+    pickle_obj = s3.get_object(Bucket=bucket,Key=key)
+    serialised = pickle_obj['Body'].read()
+    return pickle.loads(serialised)
