@@ -86,11 +86,13 @@ def get_players_future(player_data):
                             'team_a': 'away_team_id',
                             'team_a_score': 'away_team_score',
                             'team_h': 'home_team_id',
-                            'team_h_score': 'home_team_score',}
+                            'team_h_score': 'home_team_score',
+                            'is_home': 'fixture_home'}
     players_future.rename(columns=players_future_rename, inplace=True)
-    players_future['kickoff_time'] = pd.to_datetime(
+    players_future['kickoff_datetime'] = pd.to_datetime(
         players_future['kickoff_time'],
         errors='coerce')
+    players_future.drop(columns=['kickoff_time'], inplace=True)
     cat_cols = ['player_id', 'fixture_id', 'fixture_id_long', 'gameweek_id',
                 'away_team_id', 'home_team_id']
     players_future[cat_cols] = players_future[cat_cols].astype('category')
@@ -129,6 +131,7 @@ def get_players_previous_fixtures(player_data):
     players_previous['kickoff_datetime'] = pd.to_datetime(
         players_previous['kickoff_time'],
         errors='coerce')
+    players_previous.drop(columns=['kickoff_time'], inplace=True)
     cat_cols = ['fixture_id', 'player_id', 'gameweek_id']
     players_previous[cat_cols] = players_previous[cat_cols].astype('category')
     players_previous.set_index(['player_id', 'fixture_id'], inplace=True)
@@ -224,8 +227,9 @@ def get_gameweeks(events_data):
 def get_fixtures(fixture_data):
     fixtures_df = pd.DataFrame(fixture_data)
     fixtures_df.drop(columns=['stats'], inplace=True)
-    fixtures_df['kickoff_time'] = pd.to_datetime(fixtures_df['kickoff_time'],
+    fixtures_df['kickoff_datetime'] = pd.to_datetime(fixtures_df['kickoff_time'],
                                                  errors='coerce')
+    fixtures_df.drop(columns=['kickoff_time'], inplace=True)
     fixtures_rename = {'code': 'fixture_id_long',
                        'event': 'gameweek_id',
                        'finished': 'fixture_finished',
@@ -261,9 +265,136 @@ players_future_fixtures = get_players_future(players)
 
 
 dim_gameweeks = gameweeks_df
+dim_gameweeks.to_csv('./data/dim_gameweeks.csv', index=True)
+
 dim_fixtures = fixtures_df
+dim_fixtures.to_csv('./data/dim_fixtures.csv', index=True)
+
 dim_teams = teams_df
+dim_teams.to_csv('./data/dim_teams.csv', index=True)
+
 dim_positions = positions_df
+dim_positions.to_csv('./data/dim_positions.csv', index=True)
+
+
+
+def home_away_stats(data,
+                    new_col,
+                    home_col,
+                    away_col,
+                    ha_type,
+                    homeaway_marker_col='fixture_home'):
+    data[new_col] = np.nan
+    if ha_type == 'team':
+        home_mask = data[homeaway_marker_col]
+        away_mask = ~data[homeaway_marker_col]
+    elif ha_type == 'opponent':
+        home_mask = ~data[homeaway_marker_col]
+        away_mask = data[homeaway_marker_col]
+    else:
+        raise ValueError(f'ha_type {ha_type} should be either team or opponent')
+
+    data.loc[home_mask, new_col] = data[home_col]
+    data.loc[away_mask, new_col] = data[away_col]
+    return data
+
+
+# player-fixtures
+x = set(players_previous_fixtures.columns)
+y = set(players_future_fixtures.columns)
+list(x)
+list(y)
+
+# In both
+list(x & y)
+
+# In previous (add team_id, fixture_finished, 'difficulty',
+#   'home_team_id', 'away_team_id', 'fixture_minutes',
+# '') - merge on fixtures
+list(x - y)
+p_old = players_previous_fixtures.copy()
+orig_index = p_old.index
+p_old.reset_index(inplace=True)
+
+fixture_cols = ['fixture_finished',
+       'fixture_minutes',
+       'away_team_id',
+       'home_team_id',
+       'home_team_fixture_difficulty',
+       'away_team_fixture_difficulty']
+add_fixtures = fixtures_df[fixture_cols].reset_index()
+p_old = p_old.merge(add_fixtures,
+                    how='left',
+                    on='fixture_id',
+                    validate='many_to_one')
+p_old = home_away_stats(p_old,
+                        'team_id',
+                        'home_team_id',
+                        'away_team_id',
+                        'team')
+p_old = home_away_stats(p_old,
+                        'team_score',
+                        'home_team_score',
+                        'away_team_score',
+                        'team')
+p_old = home_away_stats(p_old,
+                        'opponent_score',
+                        'home_team_score',
+                        'away_team_score',
+                        'opponent')
+p_old = home_away_stats(p_old,
+                        'difficulty',
+                        'home_team_fixture_difficulty',
+                        'away_team_fixture_difficulty',
+                        'team')
+p_old.drop(columns=['away_team_id', 'home_team_id',
+                    'home_team_fixture_difficulty',
+                    'away_team_fixture_difficulty'], inplace=True)
+p_old[['player_id', 'fixture_id', 'gameweek_id']] = \
+    p_old[['player_id', 'fixture_id', 'gameweek_id']].astype('int64')
+
+# In future (add team_id, opponent_team|
+# remove fixture_id_long, provisional_start_time, event_name)
+list(y - x)
+p_new = players_future_fixtures.copy()
+p_new = home_away_stats(p_new,
+                        'team_id',
+                        'home_team_id',
+                        'away_team_id',
+                        'team')
+p_new = home_away_stats(p_new,
+                        'opponent_team',
+                        'home_team_id',
+                        'away_team_id',
+                        'opponent')
+p_new = home_away_stats(p_new,
+                        'team_score',
+                        'home_team_score',
+                        'away_team_score',
+                        'team')
+p_new = home_away_stats(p_new,
+                        'opponent_score',
+                        'home_team_score',
+                        'away_team_score',
+                        'opponent')
+p_new.drop(columns=['fixture_id_long', 'provisional_start_time', 'event_name',
+                    'home_team_id', 'away_team_id',
+                    'home_team_score', 'away_team_score'], inplace=True)
+orig_index = p_new.index
+p_new.reset_index(inplace=True)
+p_new[['player_id', 'fixture_id', 'gameweek_id']] = \
+    p_new[['player_id', 'fixture_id', 'gameweek_id']].astype('int64')
+
+p_combined = pd.concat((p_new, p_old), ignore_index=True, sort=False)
+p_combined.sort_values(['player_id', 'gameweek_id', 'kickoff_datetime'], inplace=True)
+
+p_combined.drop_duplicates(subset=['player_id', 'fixture_id'], keep='last', inplace=True)
+
+gw_count = p_combined.groupby('player_id').size()
+assert gw_count.max() == 38
+
+p_combined.set_index(['player_id', 'fixture_id'], inplace=True)
+p_combined.to_csv('./data/player_result_fixtures.csv', index=True)
 
 # dim_players
 player_specific = ['player_id_long',
@@ -411,6 +542,8 @@ MATCH_LOOKUP_DEF = """CREATE TABLE {} (
 
 # Only need to, by default, match new players (as it can take long time for
 # all players)
+# TODO: this should actually check dim_players
+# TODO: if table not exists, look to match all
 subset_data = afifa.get_new_player_frame(fpl_data, engine,
                                          lookup_table=table_name)
 
@@ -431,9 +564,10 @@ if len(subset_data):
     # Any final cleaning of matched data
     matched_data_full = afifa.final_preparation(matched_data_full)
 
-    bsu = load.BatchSQLUpdate(matched_data_full, engine, MATCH_LOOKUP_DEF,
-                              'lkp_fpl_fifa')
-    bsu.batch_append()
+    # TODO: instead, all ids should be in dim_players
+    # bsu = load.BatchSQLUpdate(matched_data_full, engine, MATCH_LOOKUP_DEF,
+    #                           'lkp_fpl_fifa')
+    # bsu.batch_append()
 
 # TODO: temp
 import pickle
@@ -441,17 +575,36 @@ with open('data/temp_matches.pkl', 'wb') as f:
     pickle.dump(matched_data, f)
 
 
-# TODO: can this not be just one table for FIFA data with additional player_id
-# column (e.g. fifa_data_full is data in database with additional columns)
-existing_mapping = pd.read_sql(f"""SELECT DISTINCT player_id, sofifa_id
-                        FROM {table_name} WHERE sofifa_id != 'nan'""", engine)
+with open('data/temp_matches.pkl', 'rb') as f:
+    matched_data = pickle.load(f)
 
-# TEMP:
-existing_mapping = matched_data_full.loc[(matched_data_full['sofifa_id'].notna()) &
+
+# TODO: this should instead get existing lookup (i.e. any mapping in dim_player table
+# without those in update - concat)
+name_dim_players = 'dim_players'
+from sqlalchemy.exc import ProgrammingError
+try:
+    existing_mapping = pd.read_sql(f"""SELECT DISTINCT player_id, sofifa_id
+                        FROM {name_dim_players} WHERE sofifa_id != 'nan'""", engine)
+except ProgrammingError:
+    full_lookup = matched_data_full.loc[(matched_data_full['sofifa_id'].notna()) &
                                           (matched_data_full['sofifa_id'] != 'nan'),
                                          ['player_id', 'sofifa_id']]
+else:
+    full_lookup = pd.concat((existing_mapping,
+                             matched_data_full[['player_id', 'sofifa_id']]))
+finally:
+    full_lookup['sofifa_id'] = full_lookup['sofifa_id'].astype('int64')
 
-existing_mapping['sofifa_id'] = existing_mapping['sofifa_id'].astype('int64')
+# existing_mapping = pd.read_sql(f"""SELECT DISTINCT player_id, sofifa_id
+#                         FROM {table_name} WHERE sofifa_id != 'nan'""", engine)
+
+# # TEMP:
+# existing_mapping = matched_data_full.loc[(matched_data_full['sofifa_id'].notna()) &
+#                                           (matched_data_full['sofifa_id'] != 'nan'),
+#                                          ['player_id', 'sofifa_id']]
+
+# existing_mapping['sofifa_id'] = existing_mapping['sofifa_id'].astype('int64')
 
 fifa_data_full = pd.read_csv(source_data)
 fifa_data_full.drop(columns=['player_url', 'short_name', 'long_name', 'age',
@@ -466,6 +619,8 @@ dim_players = players_base.merge(fifa_data_full,
                                   how='left',
                                   validate='one_to_one')
 dim_players.set_index('player_id', inplace=True)
+dim_players.to_csv('./data/dim_players.csv', index=True)
+
 
 # fact_players_current
 include_fact_current = ['chance_of_playing_next_round',
@@ -522,15 +677,15 @@ include_fact_current = ['chance_of_playing_next_round',
 fact_players_current = players_single_df[include_fact_current].reset_index().copy()
 subset = players_future_fixtures.reset_index().copy()
 subset = subset.loc[~subset['fixture_finished']]
-subset.sort_values(['player_id', 'kickoff_time'], inplace=True)
+subset.sort_values(['player_id', 'kickoff_datetime'], inplace=True)
 subset = subset.groupby('player_id').head(1)
 subset['opponent_team_id'] = np.nan
-subset.loc[subset['is_home'], 'opponent_team_id'] = subset['away_team_id']
-subset.loc[~subset['is_home'], 'opponent_team_id'] = subset['home_team_id']
+subset.loc[subset['fixture_home'], 'opponent_team_id'] = subset['away_team_id']
+subset.loc[~subset['fixture_home'], 'opponent_team_id'] = subset['home_team_id']
 
 subset_small = subset[['player_id', 'fixture_id', 'fixture_id_long',
-                       'opponent_team_id', 'difficulty', 'is_home',
-                       'kickoff_time']].copy()
+                       'opponent_team_id', 'difficulty', 'fixture_home',
+                       'kickoff_datetime']].copy()
 
 subset_small['player_id'] = subset_small['player_id'].astype('int64')
 fact_players_current['player_id'] = fact_players_current['player_id'].astype('int64')
