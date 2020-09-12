@@ -10,6 +10,7 @@ import extract
 import predict
 import utils
 import additional_fifa as afifa
+import load
 
 
 
@@ -28,13 +29,15 @@ import additional_fifa as afifa
 
 # TODO: functions to determine latest and download files
 
-with open('./data/main_20200823-125112.json', 'r') as f:
+dt_string = '20200912-123823'
+
+with open(f'./data/main_{dt_string}.json', 'r') as f:
     main = json.load(f)
 
-with open('./data/fixtures_20200823-125112.json', 'r') as f:
+with open(f'./data/fixtures_{dt_string}.json', 'r') as f:
     fixtures = json.load(f)
 
-with open('./data/players_20200823-125112.json', 'r') as f:
+with open(f'./data/players_{dt_string}.json', 'r') as f:
     players = json.load(f)
 
 with open('./data/main_old.json', 'r') as f:
@@ -251,47 +254,78 @@ gameweeks_df = get_gameweeks(events)
 fixtures_df = get_fixtures(fixtures)
 teams_df = get_teams(teams)
 positions_df = get_positions(main['element_types'])
-players_single_df = get_players_single(main_old['elements'])
+players_single_df = get_players_single(main['elements'])
 players_previous_seasons = get_players_previous_seasons(players)
 players_previous_fixtures = get_players_previous_fixtures(players)
 players_future_fixtures = get_players_future(players)
 
+
+dim_gameweeks = gameweeks_df
+dim_fixtures = fixtures_df
+dim_teams = teams_df
+dim_positions = positions_df
+
+# dim_players
+player_specific = ['player_id_long',
+                   'dreamteam_count',
+                   'position_id',
+                   'first_name',
+                   'form',
+                   'photo',
+                   'points_per_game',
+                   'second_name',
+                   'special',
+                   'squad_number',
+                   'team_id',
+                   'total_points',
+                   'transfers_in',
+                   'transfers_out',
+                   'value_form',
+                   'value_season',
+                   'web_name',
+                   'minutes',
+                   'goals_scored',
+                   'assists',
+                   'clean_sheets',
+                   'goals_conceded',
+                   'own_goals',
+                   'penalties_saved',
+                   'penalties_missed',
+                   'yellow_cards',
+                   'red_cards',
+                   'saves',
+                   'bonus',
+                   'bps',
+                   'influence',
+                   'creativity',
+                   'threat',
+                   'ict_index',
+                   'influence_rank',
+                   'influence_rank_type',
+                   'creativity_rank',
+                   'creativity_rank_type',
+                   'threat_rank',
+                   'threat_rank_type',
+                   'ict_index_rank',
+                   'ict_index_rank_type']
+players_base = players_single_df[player_specific].copy()
+players_base.rename(columns={'team_id': 'team_id_current'}, inplace=True)
+
+
 # Old. TODO: remove
-events_old = main_old['events']
-game_settings_old = main_old['game_settings']
-phases_old = main_old['phases']
-teams_old = main_old['teams']
-positions_old = main_old['element_types']
-gameweeks_df_old = get_gameweeks(events_old)
-fixtures_df_old = get_fixtures(fixtures_old)
-teams_df_old = get_teams(teams_old)
-positions_df_old = get_positions(main_old['element_types'])
-players_single_df_old = get_players_single(main_old['elements'])
-players_previous_seasons_old = get_players_previous_seasons(players_old)
-players_previous_fixtures_old = get_players_previous_fixtures(players_old)
+# events_old = main_old['events']
+# game_settings_old = main_old['game_settings']
+# phases_old = main_old['phases']
+# teams_old = main_old['teams']
+# positions_old = main_old['element_types']
+# gameweeks_df_old = get_gameweeks(events_old)
+# fixtures_df_old = get_fixtures(fixtures_old)
+# teams_df_old = get_teams(teams_old)
+# positions_df_old = get_positions(main_old['element_types'])
+# players_single_df_old = get_players_single(main_old['elements'])
+# players_previous_seasons_old = get_players_previous_seasons(players_old)
+# players_previous_fixtures_old = get_players_previous_fixtures(players_old)
 # players_future_fixtures_old = get_players_future(players_old)
-
-# Add to next player-fixtures
-players_next = players_single_df.reset_index().copy()
-subset = players_future_fixtures.reset_index().copy()
-subset = subset.loc[~subset['fixture_finished']]
-subset.sort_values(['player_id', 'kickoff_time'], inplace=True)
-subset = subset.groupby('player_id').head(1)
-subset['opponent_team_id'] = np.nan
-subset.loc[subset['is_home'], 'opponent_team_id'] = subset['away_team_id']
-subset.loc[~subset['is_home'], 'opponent_team_id'] = subset['home_team_id']
-
-subset_small = subset[['player_id', 'fixture_id', 'fixture_id_long',
-                       'opponent_team_id', 'difficulty', 'is_home',
-                       'kickoff_time']].copy()
-
-subset_small['player_id'] = subset_small['player_id'].astype('int64')
-players_next['player_id'] = players_next['player_id'].astype('int64')
-players_next = players_next.merge(subset_small,
-                                  how='left',
-                                  on='player_id',
-                                  validate='one_to_one')
-players_next.set_index('player_id', inplace=True)
 
 
 # FIFA mapping
@@ -352,18 +386,28 @@ if pargs['rebuild']:
     # If requested, delete table to rebuild
     clear_table(engine, table_name)
 
-fpl_data = players_next[['first_name', 'second_name', 'position_id',
-                         'team_id']].copy().reset_index()
+fpl_data = players_base[['first_name', 'second_name', 'position_id',
+                         'team_id_current']].copy().reset_index()
 fpl_data['fpl_player_name'] = fpl_data['first_name'] + ' ' + fpl_data['second_name']
 fpl_data = fpl_data.merge(positions_df['position_name'],
                              left_on='position_id',
                              right_index=True,
                              validate='many_to_one')
 fpl_data = fpl_data.merge(teams_df['team_name_long'],
-                             left_on='team_id',
+                             left_on='team_id_current',
                              right_index=True,
                              validate='many_to_one')
 fifa_data = afifa.BuildFifaData().load_fifa_data(filepath=source_data)
+
+MATCH_LOOKUP_DEF = """CREATE TABLE {} (
+    player_id VARCHAR(3) NOT NULL UNIQUE REFERENCES players_summary(player_id),
+    sofifa_id VARCHAR(20),
+    match_best INT,
+    fpl_player_name VARCHAR(550),
+    fifa_name_short VARCHAR(550),
+    fifa_name_long VARCHAR(550)
+    )
+    """
 
 # Only need to, by default, match new players (as it can take long time for
 # all players)
@@ -387,11 +431,28 @@ if len(subset_data):
     # Any final cleaning of matched data
     matched_data_full = afifa.final_preparation(matched_data_full)
 
+    bsu = load.BatchSQLUpdate(matched_data_full, engine, MATCH_LOOKUP_DEF,
+                              'lkp_fpl_fifa')
+    bsu.batch_append()
+
+# TODO: temp
+import pickle
+with open('data/temp_matches.pkl', 'wb') as f:
+    pickle.dump(matched_data, f)
+
+
 # TODO: can this not be just one table for FIFA data with additional player_id
 # column (e.g. fifa_data_full is data in database with additional columns)
 existing_mapping = pd.read_sql(f"""SELECT DISTINCT player_id, sofifa_id
                         FROM {table_name} WHERE sofifa_id != 'nan'""", engine)
+
+# TEMP:
+existing_mapping = matched_data_full.loc[(matched_data_full['sofifa_id'].notna()) &
+                                          (matched_data_full['sofifa_id'] != 'nan'),
+                                         ['player_id', 'sofifa_id']]
+
 existing_mapping['sofifa_id'] = existing_mapping['sofifa_id'].astype('int64')
+
 fifa_data_full = pd.read_csv(source_data)
 fifa_data_full.drop(columns=['player_url', 'short_name', 'long_name', 'age',
                              'club'], inplace=True)
@@ -400,18 +461,104 @@ fifa_data_full = fifa_data_full.merge(existing_mapping,
                                       how='inner',
                                       validate='one_to_many')
 fifa_data_full['player_id'] = fifa_data_full['player_id'].astype('int64')
-players_next = players_next.merge(fifa_data_full,
+dim_players = players_base.merge(fifa_data_full,
                                   on='player_id',
                                   how='left',
                                   validate='one_to_one')
-players_next.set_index('player_id', inplace=True)
+dim_players.set_index('player_id', inplace=True)
 
+# fact_players_current
+include_fact_current = ['chance_of_playing_next_round',
+                       'chance_of_playing_this_round',
+                       'cost_change_event',
+                       'cost_change_event_fall',
+                       'position_id',
+                       'ep_next',
+                       'ep_this',
+                       'gameweek_points',
+                       'form',
+                       'points_per_game',
+                       'in_dreamteam',
+                       'news',
+                       'news_added',
+                       'now_cost',
+                       'status',
+                       'team_id',
+                       'total_points',
+                       'transfers_in',
+                       'transfers_in_event',
+                       'transfers_out',
+                       'transfers_out_event',
+                       'value_form',
+                       'value_season',
+                       'web_name',
+                       'minutes',
+                       'goals_scored',
+                       'assists',
+                       'clean_sheets',
+                       'goals_conceded',
+                       'own_goals',
+                       'penalties_saved',
+                       'penalties_missed',
+                       'yellow_cards',
+                       'red_cards',
+                       'saves',
+                       'bonus',
+                       'bps',
+                       'influence',
+                       'creativity',
+                       'threat',
+                       'ict_index',
+                       'influence_rank',
+                       'influence_rank_type',
+                       'creativity_rank',
+                       'creativity_rank_type',
+                       'threat_rank',
+                       'threat_rank_type',
+                       'ict_index_rank',
+                       'ict_index_rank_type',
+                       'news_added_datetime']
+
+fact_players_current = players_single_df[include_fact_current].reset_index().copy()
+subset = players_future_fixtures.reset_index().copy()
+subset = subset.loc[~subset['fixture_finished']]
+subset.sort_values(['player_id', 'kickoff_time'], inplace=True)
+subset = subset.groupby('player_id').head(1)
+subset['opponent_team_id'] = np.nan
+subset.loc[subset['is_home'], 'opponent_team_id'] = subset['away_team_id']
+subset.loc[~subset['is_home'], 'opponent_team_id'] = subset['home_team_id']
+
+subset_small = subset[['player_id', 'fixture_id', 'fixture_id_long',
+                       'opponent_team_id', 'difficulty', 'is_home',
+                       'kickoff_time']].copy()
+
+subset_small['player_id'] = subset_small['player_id'].astype('int64')
+fact_players_current['player_id'] = fact_players_current['player_id'].astype('int64')
+fact_players_current = fact_players_current.merge(subset_small,
+                                                  how='left',
+                                                  on='player_id',
+                                                  validate='one_to_one')
 
 # Apply predictive model. TODO: actual one - update predict module when ready
-players_next_predict = predict.apply_models(players_next)
+fact_players_current_predict = predict.apply_models(fact_players_current)
+
+fact_players_current_predict.to_csv('./data/fact_players_current_predict.csv',
+                                    index=False)
 
 
 # Load
+
+table = ''
+dataframe = ''
+method = 'overwrite'  # overwrite/append/update
+
+engine = set_db(db_config)
+
+
+
+from collections import namedtuple
+
+
 
 
 def run_etl(args):
